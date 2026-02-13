@@ -8,3 +8,4 @@ build/
 .ruff_cache/
 collected_data/
 drift_data/
+nul

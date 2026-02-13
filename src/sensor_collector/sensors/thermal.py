@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import ClassVar
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class ThermalZone:
     """Description of a single thermal zone."""
 

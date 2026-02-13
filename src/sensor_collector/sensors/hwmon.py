@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import ClassVar
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class HwmonSensor:
     """Description of a single hwmon temperature input."""
 

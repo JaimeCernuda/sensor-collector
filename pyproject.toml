@@ -2,7 +2,7 @@
 name = "sensor-collector"
 version = "0.1.0"
 description = "Multivariate clock drift data collector for Linux machines"
-requires-python = ">=3.11"
+requires-python = ">=3.9"
 dependencies = []
 
 [project.scripts]

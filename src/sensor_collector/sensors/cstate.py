@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import ClassVar
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class CpuCstateInfo:
     """Discovered C-state layout for a single CPU."""
 

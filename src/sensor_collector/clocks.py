@@ -68,7 +68,7 @@ class _Timex(ctypes.Structure):
     ]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class ClockReading:
     """Snapshot of all three Linux clocks taken in rapid succession."""
 
@@ -78,7 +78,7 @@ class ClockReading:
     mono_minus_raw_ns: int
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class AdjTimexReading:
     """Subset of adjtimex() fields relevant to drift measurement."""
 

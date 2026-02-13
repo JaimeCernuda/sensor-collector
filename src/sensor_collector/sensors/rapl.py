@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import ClassVar
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class RaplDomain:
     """Description of a single RAPL energy domain or subdomain."""
 
