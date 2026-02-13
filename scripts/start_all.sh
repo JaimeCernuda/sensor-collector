@@ -67,19 +67,20 @@ done
 ssh ares "ssh ares-comp-10 'mkdir -p ~/drift_data'" 2>/dev/null || true
 
 # Start all collectors
+# Peer clock probing only on ares <-> ares-comp-10 (same LAN).
+# Cross-internet UDP 19777 blocked by firewalls/NAT.
+
 # homelab: full collector, root sensors, no stress
-start_direct "homelab" "ssh homelab" \
-    "--peers ares=216.47.152.168:19777,chameleon=129.114.108.185:19777"
+start_direct "homelab" "ssh homelab" ""
 
 # chameleon: full collector, root sensors (sudo), stressed externally
-start_sudo "chameleon" "ssh chameleon" \
-    "--peers ares=216.47.152.168:19777"
+start_sudo "chameleon" "ssh chameleon" ""
 
-# ares master: lesser collector, no root
+# ares master: lesser collector, no root, peers with ares-comp-10
 start_direct "ares" "ssh ares" \
-    "--no-root-sensors --peers chameleon=129.114.108.185:19777,ares-comp-10=172.20.101.10:19777"
+    "--no-root-sensors --peers ares-comp-10=172.20.101.10:19777"
 
-# ares-comp-10: lesser collector, no root, stressed externally
+# ares-comp-10: lesser collector, no root, peers with ares
 start_jump "ares" "ares-comp-10" \
     "--no-root-sensors --peers ares=172.20.1.1:19777"
 

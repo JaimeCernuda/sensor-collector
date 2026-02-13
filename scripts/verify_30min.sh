@@ -85,35 +85,35 @@ log "  Old sessions cleaned."
 # --- Step 4: Start collectors in tmux ---
 log "${CYAN}=== Step 4: Starting collectors (duration=${DURATION}s) ===${NC}"
 
-# homelab: full sensors + peers
+# Peer clock probing only on ares <-> ares-comp-10 (same LAN).
+
+# homelab: full sensors, no peers
 log "  Starting homelab..."
 ssh homelab "cd ~/$REMOTE_DIR && \
     tmux new-session -d -s collector \
     'PYTHONPATH=src $PYTHON -m sensor_collector -d $DURATION \
-     --peers ares=216.47.152.168:19777,chameleon=129.114.108.185:19777 \
      2>&1 | tee ~/drift_data/collector.log'"
 log "  homelab: $(ok)"
 
-# chameleon: sudo + peers
+# chameleon: sudo, no peers
 log "  Starting chameleon..."
 ssh chameleon "cd ~/$REMOTE_DIR && \
     tmux new-session -d -s collector \
     'sudo env PYTHONPATH=src $PYTHON -m sensor_collector -d $DURATION \
      -o /home/cc/drift_data \
-     --peers ares=216.47.152.168:19777 \
      2>&1 | tee /home/cc/drift_data/collector.log'"
 log "  chameleon: $(ok)"
 
-# ares: no-root + peers
+# ares: no-root, peers with ares-comp-10
 log "  Starting ares..."
 ssh ares "cd ~/$REMOTE_DIR && \
     tmux new-session -d -s collector \
     'PYTHONPATH=src $PYTHON -m sensor_collector -d $DURATION --no-root-sensors \
-     --peers chameleon=129.114.108.185:19777,ares-comp-10=172.20.101.10:19777 \
+     --peers ares-comp-10=172.20.101.10:19777 \
      2>&1 | tee ~/drift_data/collector.log'"
 log "  ares: $(ok)"
 
-# ares-comp-10: via jump, no-root + peers
+# ares-comp-10: via jump, no-root, peers with ares
 log "  Starting ares-comp-10..."
 ssh ares "ssh ares-comp-10 'cd ~/$REMOTE_DIR && \
     tmux new-session -d -s collector \

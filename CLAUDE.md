@@ -72,20 +72,29 @@ UDP port **19777** is used for pairwise clock offset measurement between nodes.
 Each node runs a UDP server and probes its peers every 2 seconds using NTP-style
 4-timestamp exchanges.
 
-Per-machine `--peers` arguments:
+Only the ares <-> ares-comp-10 LAN link is active. Cross-internet UDP is blocked
+by firewalls/NAT on homelab, ares, and chameleon and not worth the infra hassle.
 
 | Machine | `--peers` value |
 |---------|----------------|
-| homelab | `ares=216.47.152.168:19777,chameleon=129.114.108.185:19777` |
-| chameleon | `ares=216.47.152.168:19777` |
-| ares | `chameleon=129.114.108.185:19777,ares-comp-10=172.20.101.10:19777` |
+| homelab | *(none)* |
+| chameleon | *(none)* |
+| ares | `ares-comp-10=172.20.101.10:19777` |
 | ares-comp-10 | `ares=172.20.1.1:19777` |
 
-Firewall: ensure UDP 19777 is open on all nodes.
+## Lessons Learned (2026-02-13 verification run)
 
-**Status (verified 2026-02-13):** LAN peer links (ares <-> ares-comp-10) work
-with ~0.1ms offset, ~0.3ms RTT. Cross-internet links (homelab, chameleon, ares)
-blocked by firewalls/NAT — needs:
-- **homelab**: UDP 19777 port forward on home router
-- **ares**: university firewall exception for UDP 19777 inbound
-- **chameleon**: Chameleon Cloud security group rule for UDP 19777 inbound
+- **`sudo` drops env vars.** Use `sudo env PYTHONPATH=src python3 ...` on
+  chameleon, plus `-o /home/cc/drift_data` since sudo resolves `~` to `/root`.
+- **ares-comp-10 has no internet.** `git pull` fails; deploy via
+  `ssh ares "rsync -a --delete ~/sensor_collector/ ares-comp-10:~/sensor_collector/"`.
+- **NFS shared home on ares cluster.** Both ares and ares-comp-10 write to the
+  same `~/drift_data/`. CSV filenames include hostname so they don't collide,
+  but scripts that do `ls -t *.csv | head -1` may pick the wrong machine's file.
+- **Double-SSH quoting from Windows/Git Bash is fragile.** Pipe commands via
+  `echo "cmd" | ssh ares "ssh ares-comp-10 bash -s"` instead of nesting quotes.
+  Avoid `awk '{print $1}'` and nested `$()` through double SSH.
+- **Cross-internet UDP blocked.** homelab behind NAT, ares behind university FW,
+  chameleon behind cloud security groups. All block inbound UDP 19777.
+- **Don't edit a running bash script.** Bash reads incrementally; editing the
+  file mid-execution corrupts the parser's byte offsets.
