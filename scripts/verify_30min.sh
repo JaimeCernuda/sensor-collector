@@ -34,7 +34,8 @@ run_on() {
     local machine="$1"
     shift
     case "$machine" in
-        ares-comp-10) ssh ares "ssh ares-comp-10 '$*'" 2>/dev/null ;;
+        # Pipe command via stdin to avoid double-SSH quoting issues
+        ares-comp-10) echo "$*" | ssh ares "ssh ares-comp-10 bash -s" 2>/dev/null ;;
         *)            ssh "$machine" "$*" 2>/dev/null ;;
     esac
 }
@@ -53,9 +54,17 @@ deploy_node() {
     fi
 }
 
-for machine in homelab chameleon ares ares-comp-10; do
+for machine in homelab chameleon ares; do
     deploy_node "$machine"
 done
+
+# ares-comp-10 has no internet — sync from ares via rsync
+log "  Syncing to ares-comp-10 via rsync from ares..."
+if ssh ares "rsync -a --delete ~/$REMOTE_DIR/ ares-comp-10:~/$REMOTE_DIR/"; then
+    log "  ares-comp-10: $(ok)"
+else
+    log "  ares-comp-10: $(fail) - rsync failed"
+fi
 
 # --- Step 2: Clean old verification data ---
 log "${CYAN}=== Step 2: Cleaning old data ===${NC}"
@@ -89,9 +98,10 @@ log "  homelab: $(ok)"
 log "  Starting chameleon..."
 ssh chameleon "cd ~/$REMOTE_DIR && \
     tmux new-session -d -s collector \
-    'PYTHONPATH=src sudo $PYTHON -m sensor_collector -d $DURATION \
+    'sudo env PYTHONPATH=src $PYTHON -m sensor_collector -d $DURATION \
+     -o /home/cc/drift_data \
      --peers ares=216.47.152.168:19777 \
-     2>&1 | tee ~/drift_data/collector.log'"
+     2>&1 | tee /home/cc/drift_data/collector.log'"
 log "  chameleon: $(ok)"
 
 # ares: no-root + peers
@@ -142,8 +152,9 @@ while (( checks_done < total_checks )); do
             status="$(fail)"
         fi
 
-        # Check CSV row count
-        row_count=$(run_on "$machine" "wc -l ~/drift_data/*.csv 2>/dev/null | tail -1 | awk '{print \$1}'" || echo "0")
+        # Check CSV row count (newest file only, pipeline avoids nested $())
+        row_count=$(run_on "$machine" "ls -t ~/drift_data/*.csv 2>/dev/null | head -1 | xargs cat 2>/dev/null | wc -l" || echo "0")
+        row_count="${row_count//[^0-9]/}"  # strip whitespace
         row_count="${row_count:-0}"
 
         # Calculate rows since last check
@@ -151,9 +162,9 @@ while (( checks_done < total_checks )); do
         delta=$(( row_count - prev ))
         PREV_ROWS[$machine]=$row_count
 
-        # Check for peer columns (only on first check)
+        # Check for peer columns (only on first check, newest CSV only)
         if (( checks_done == 1 )); then
-            peer_cols=$(run_on "$machine" "head -1 ~/drift_data/*.csv 2>/dev/null | tr ',' '\n' | grep -c peer" || echo "0")
+            peer_cols=$(run_on "$machine" "ls -t ~/drift_data/*.csv 2>/dev/null | head -1 | xargs head -1 | tr ',' '\n' | grep -c peer" || echo "0")
             peer_info="peers=${peer_cols}"
         else
             peer_info=""
@@ -174,12 +185,13 @@ printf "%-15s  %8s  %12s  %s\n" "-------" "----" "---------" "------"
 all_ok=true
 
 for machine in "${MACHINES[@]}"; do
-    # Final row count
-    row_count=$(run_on "$machine" "wc -l ~/drift_data/*.csv 2>/dev/null | tail -1 | awk '{print \$1}'" || echo "0")
+    # Final row count (newest CSV only)
+    row_count=$(run_on "$machine" "ls -t ~/drift_data/*.csv 2>/dev/null | head -1 | xargs cat 2>/dev/null | wc -l" || echo "0")
+    row_count="${row_count//[^0-9]/}"
     row_count="${row_count:-0}"
 
-    # Peer columns in header
-    peer_cols=$(run_on "$machine" "head -1 ~/drift_data/*.csv 2>/dev/null | tr ',' '\n' | grep -c peer" || echo "0")
+    # Peer columns in header (newest CSV only)
+    peer_cols=$(run_on "$machine" "ls -t ~/drift_data/*.csv 2>/dev/null | head -1 | xargs head -1 | tr ',' '\n' | grep -c peer" || echo "0")
 
     # Determine status
     if (( row_count > 1700 )) && (( peer_cols > 0 )); then

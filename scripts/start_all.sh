@@ -27,10 +27,23 @@ start_direct() {
     local extra_args="${3:-}"
 
     log "Starting collector on $name..."
-    $ssh_cmd "cd ~/$REMOTE_DIR && nohup $PYTHON -m sensor_collector \
+    $ssh_cmd "cd ~/$REMOTE_DIR && nohup env PYTHONPATH=src $PYTHON -m sensor_collector \
         -d $DURATION $extra_args \
         > ~/drift_data/collector.log 2>&1 &
         echo \$! > ~/drift_data/collector.pid"
+    log "  $name: started"
+}
+
+start_sudo() {
+    local name="$1"
+    local ssh_cmd="$2"
+    local extra_args="${3:-}"
+
+    log "Starting collector on $name (sudo)..."
+    $ssh_cmd "cd ~/$REMOTE_DIR && nohup sudo env PYTHONPATH=src $PYTHON -m sensor_collector \
+        -d $DURATION -o /home/cc/drift_data $extra_args \
+        > /home/cc/drift_data/collector.log 2>&1 &
+        echo \$! > /home/cc/drift_data/collector.pid"
     log "  $name: started"
 }
 
@@ -40,7 +53,7 @@ start_jump() {
     local extra_args="${3:-}"
 
     log "Starting collector on $target via $jump..."
-    ssh "$jump" "ssh $target 'cd ~/$REMOTE_DIR && nohup $PYTHON -m sensor_collector \
+    ssh "$jump" "ssh $target 'cd ~/$REMOTE_DIR && nohup env PYTHONPATH=src $PYTHON -m sensor_collector \
         -d $DURATION $extra_args \
         > ~/drift_data/collector.log 2>&1 &
         echo \$! > ~/drift_data/collector.pid'"
@@ -58,8 +71,8 @@ ssh ares "ssh ares-comp-10 'mkdir -p ~/drift_data'" 2>/dev/null || true
 start_direct "homelab" "ssh homelab" \
     "--peers ares=216.47.152.168:19777,chameleon=129.114.108.185:19777"
 
-# chameleon: full collector, root sensors, stressed externally
-start_direct "chameleon" "ssh chameleon" \
+# chameleon: full collector, root sensors (sudo), stressed externally
+start_sudo "chameleon" "ssh chameleon" \
     "--peers ares=216.47.152.168:19777"
 
 # ares master: lesser collector, no root
