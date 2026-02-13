@@ -10,24 +10,27 @@ import pytest
 from sensor_collector.chrony import ChronyReader, parse_tracking_line
 
 # -- Synthetic chronyc -c tracking output matching field indices --
-# Indices: 0=ref_id, 1=ref_name, 2=stratum, 3=ref_time,
-#          4=freq(ppm), 5=residual_freq(ppm), 6=skew(ppm),
-#          7=root_delay(s), 8=root_dispersion(s),
-#          9=update_interval, 10=last_offset(s), ...
+# Indices: 0=ref_id, 1=ref_ip, 2=stratum, 3=ref_time,
+#          4=system_time(s), 5=last_offset(s), 6=rms_offset(s),
+#          7=frequency(ppm), 8=resid_freq(ppm), 9=skew(ppm),
+#          10=root_delay(s), 11=root_dispersion(s),
+#          12=update_interval(s), 13=leap_status
 # fmt: off
 SAMPLE_LINE = ",".join([
     "C3B20501",          # 0  ref_id
-    "195.178.5.1",       # 1  ref_name
+    "195.178.5.1",       # 1  ref_ip
     "2",                 # 2  stratum
     "1707843210.123",    # 3  ref_time
-    "0.012345",          # 4  freq (PPM)
-    "0.000678",          # 5  residual freq (PPM)
-    "0.001234",          # 6  skew (PPM)
-    "0.004567",          # 7  root delay (seconds)
-    "0.000890",          # 8  root dispersion (seconds)
-    "64.0",              # 9  update interval
-    "-0.000000456",      # 10 last offset (seconds)
-    "0",                 # 11+
+    "0.000012345",       # 4  system_time (seconds)
+    "-0.000000456",      # 5  last_offset (seconds)
+    "0.000000789",       # 6  rms_offset (seconds)
+    "0.012345",          # 7  frequency (PPM)
+    "0.000678",          # 8  residual freq (PPM)
+    "0.001234",          # 9  skew (PPM)
+    "0.004567",          # 10 root delay (seconds)
+    "0.000890",          # 11 root dispersion (seconds)
+    "64.0",              # 12 update interval
+    "Normal",            # 13 leap status
 ])
 # fmt: on
 

@@ -35,18 +35,23 @@ def parse_tracking_line(line: str) -> dict[str, int | float | str]:
         "chrony_stratum": "",
     }
 
+    # chronyc -c tracking CSV field order:
+    #  [0] refid, [1] refip, [2] stratum, [3] ref_time,
+    #  [4] system_time (s), [5] last_offset (s), [6] rms_offset (s),
+    #  [7] frequency (ppm), [8] resid_freq (ppm), [9] skew (ppm),
+    #  [10] root_delay (s), [11] root_dispersion (s),
+    #  [12] update_interval (s), [13] leap_status
     fields = line.strip().split(",")
-    if len(fields) < 11:
+    if len(fields) < 12:
         return empty
 
     try:
         stratum = int(fields[2])
-        freq_ppm = float(fields[4])
-        residual_freq_ppm = float(fields[5])  # noqa: F841 — available if needed
-        skew_ppm = float(fields[6])
-        root_delay_ns = float(fields[7]) * _S_TO_NS
-        root_dispersion_ns = float(fields[8]) * _S_TO_NS
-        last_offset_ns = float(fields[10]) * _S_TO_NS
+        freq_ppm = float(fields[7])
+        skew_ppm = float(fields[9])
+        root_delay_ns = float(fields[10]) * _S_TO_NS
+        root_dispersion_ns = float(fields[11]) * _S_TO_NS
+        last_offset_ns = float(fields[5]) * _S_TO_NS
     except (ValueError, IndexError):
         return empty
 
