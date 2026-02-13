@@ -165,6 +165,8 @@ while (( checks_done < total_checks )); do
         # Check for peer columns (only on first check, newest CSV only)
         if (( checks_done == 1 )); then
             peer_cols=$(run_on "$machine" "ls -t ~/drift_data/*.csv 2>/dev/null | head -1 | xargs head -1 | tr ',' '\n' | grep -c peer" || echo "0")
+            peer_cols="${peer_cols//[^0-9]/}"
+            peer_cols="${peer_cols:-0}"
             peer_info="peers=${peer_cols}"
         else
             peer_info=""
@@ -192,9 +194,11 @@ for machine in "${MACHINES[@]}"; do
 
     # Peer columns in header (newest CSV only)
     peer_cols=$(run_on "$machine" "ls -t ~/drift_data/*.csv 2>/dev/null | head -1 | xargs head -1 | tr ',' '\n' | grep -c peer" || echo "0")
+    peer_cols="${peer_cols//[^0-9]/}"
+    peer_cols="${peer_cols:-0}"
 
-    # Determine status
-    if (( row_count > 1700 )) && (( peer_cols > 0 )); then
+    # Determine status (peers only expected on ares/ares-comp-10)
+    if (( row_count > 1700 )); then
         status="$(ok)"
     elif (( row_count > 0 )); then
         status="$(warn)"
@@ -209,50 +213,23 @@ done
 
 echo ""
 
-# Print sample peer data from each machine
+# Print sample peer data from ares pair (only nodes with peers configured)
 log "${CYAN}=== Sample Peer Clock Data (last 3 rows) ===${NC}"
 echo ""
 
-for machine in "${MACHINES[@]}"; do
+for machine in ares ares-comp-10; do
     log "  $machine:"
-
-    # Get header and find peer column indices
-    header=$(run_on "$machine" "head -1 ~/drift_data/*.csv 2>/dev/null" || echo "")
-    if [ -z "$header" ]; then
-        log "    No CSV data found"
-        continue
-    fi
-
-    # Show peer-related columns from last 3 data rows
-    # First, get peer column names
-    peer_cols_list=$(echo "$header" | tr ',' '\n' | grep -n peer || true)
-    if [ -z "$peer_cols_list" ]; then
-        log "    No peer columns found"
-        continue
-    fi
-
-    log "    Peer columns: $(echo "$peer_cols_list" | tr '\n' ', ')"
-
-    # Extract peer column indices for awk
-    col_indices=$(echo "$header" | tr ',' '\n' | grep -n peer | cut -d: -f1 | tr '\n' ',' | sed 's/,$//')
-
-    if [ -n "$col_indices" ]; then
-        # Build awk print command
-        awk_fields=""
-        for idx in $(echo "$col_indices" | tr ',' ' '); do
-            if [ -z "$awk_fields" ]; then
-                awk_fields="\$$idx"
-            else
-                awk_fields="$awk_fields\",\"\$$idx"
-            fi
+    # Get last 3 values of the peer columns (last N fields via rev|cut|rev)
+    sample=$(run_on "$machine" "ls -t ~/drift_data/*.csv 2>/dev/null | head -1 | xargs tail -3 | rev | cut -d, -f1-3 | rev" || echo "")
+    if [ -n "$sample" ]; then
+        # Print header for context
+        hdr=$(run_on "$machine" "ls -t ~/drift_data/*.csv 2>/dev/null | head -1 | xargs head -1 | rev | cut -d, -f1-3 | rev" || echo "")
+        log "    $hdr"
+        echo "$sample" | while IFS= read -r line; do
+            log "    $line"
         done
-
-        sample=$(run_on "$machine" "tail -3 ~/drift_data/*.csv 2>/dev/null | awk -F, '{print $awk_fields}'" || echo "")
-        if [ -n "$sample" ]; then
-            echo "$sample" | while IFS= read -r line; do
-                log "    $line"
-            done
-        fi
+    else
+        log "    No data"
     fi
     echo ""
 done
