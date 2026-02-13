@@ -52,13 +52,17 @@ sensor_gathering/
 
 - **ares-comp-10** is only reachable from inside the ares master node (jump host required).
 - **chameleon** (129.114.108.185, user `cc`) is on a separate Chameleon Cloud cluster. Key: `~/.ssh/Chameleon`.
+- **ares & ares-comp-10** share NFS home directory — CSV files from both appear in `~/drift_data/`.
+- **ares-comp-10** has no internet access — deploy via `rsync` from ares, not `git pull`.
 
 ### Deployment Notes
 
 - Code is deployed via GitHub: `https://github.com/JaimeCernuda/sensor-collector`
 - On each machine: `cd ~/sensor_collector && git pull && PYTHONPATH=src python3 -m sensor_collector`
-- **chameleon**: must run with `sudo` (turbostat needs root for MSR access)
+- **chameleon**: must run with `sudo env PYTHONPATH=src` and `-o /home/cc/drift_data`
+  (sudo changes home to /root; turbostat needs root for MSR access)
 - **ares, ares-comp-10**: use `--no-root-sensors` (no sudo available)
+- **ares-comp-10**: no internet; deploy with `ssh ares "rsync -a --delete ~/sensor_collector/ ares-comp-10:~/sensor_collector/"`
 - **homelab**: Python 3.9.2 — no `slots=True` on dataclasses, no `zip(strict=True)`
 - Data output: `~/drift_data/` on each machine
 
@@ -78,3 +82,10 @@ Per-machine `--peers` arguments:
 | ares-comp-10 | `ares=172.20.1.1:19777` |
 
 Firewall: ensure UDP 19777 is open on all nodes.
+
+**Status (verified 2026-02-13):** LAN peer links (ares <-> ares-comp-10) work
+with ~0.1ms offset, ~0.3ms RTT. Cross-internet links (homelab, chameleon, ares)
+blocked by firewalls/NAT — needs:
+- **homelab**: UDP 19777 port forward on home router
+- **ares**: university firewall exception for UDP 19777 inbound
+- **chameleon**: Chameleon Cloud security group rule for UDP 19777 inbound
