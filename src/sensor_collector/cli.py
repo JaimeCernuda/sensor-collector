@@ -65,8 +65,31 @@ def parse_args(argv: list[str] | None = None) -> CollectorConfig:
         action="store_true",
         help="Skip root-only sensors (RAPL, turbostat, IPMI)",
     )
+    parser.add_argument(
+        "--peers",
+        type=str,
+        default="",
+        help=(
+            "Comma-separated peer clock probes: name=host:port[,...] "
+            "(e.g. ares=216.47.152.168:19777,chameleon=129.114.108.185:19777)"
+        ),
+    )
+    parser.add_argument(
+        "--listen-port",
+        type=int,
+        default=19777,
+        help="UDP listen port for peer clock server (default: 19777)",
+    )
 
     args = parser.parse_args(argv)
+
+    # Parse peer specs into (name, host, port) tuples.
+    peers: list[tuple[str, str, int]] = []
+    if args.peers:
+        from .peer_clock import parse_peer_arg
+
+        parsed = parse_peer_arg(args.peers)
+        peers = [(p.name, p.host, p.port) for p in parsed]
 
     return CollectorConfig(
         output_dir=args.output_dir,
@@ -77,6 +100,8 @@ def parse_args(argv: list[str] | None = None) -> CollectorConfig:
         disk_devices=args.disk,
         cstate_cpus_per_socket=args.cstate_cpus_per_socket,
         try_root_sensors=not args.no_root_sensors,
+        peers=peers,
+        listen_port=args.listen_port,
     )
 
 

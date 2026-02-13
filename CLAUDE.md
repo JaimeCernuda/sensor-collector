@@ -8,7 +8,7 @@ for 24 hours to build multivariate drift prediction models.
 
 ## Language & Tooling
 
-- **Python 3.11+**, stdlib-only (no runtime dependencies)
+- **Python 3.9+**, stdlib-only (no runtime dependencies)
 - `uv` for project management, `uv run` for execution
 - `ruff` for linting/formatting, `pyright` for type checking
 - `pytest` for testing
@@ -29,6 +29,7 @@ sensor_gathering/
     schema.py                             # build column list from inventory
     writer.py                             # buffered CSV + metadata JSON
     collector.py                          # main 1Hz loop
+    peer_clock.py                         # UDP peer clock offset probing
     sensors/                              # sensor reader modules
       hwmon.py, cpufreq.py, rapl.py, procfs.py,
       ipmi.py, turbostat.py, cstate.py,
@@ -51,3 +52,29 @@ sensor_gathering/
 
 - **ares-comp-10** is only reachable from inside the ares master node (jump host required).
 - **chameleon** (129.114.108.185, user `cc`) is on a separate Chameleon Cloud cluster. Key: `~/.ssh/Chameleon`.
+
+### Deployment Notes
+
+- Code is deployed via GitHub: `https://github.com/JaimeCernuda/sensor-collector`
+- On each machine: `cd ~/sensor_collector && git pull && PYTHONPATH=src python3 -m sensor_collector`
+- **chameleon**: must run with `sudo` (turbostat needs root for MSR access)
+- **ares, ares-comp-10**: use `--no-root-sensors` (no sudo available)
+- **homelab**: Python 3.9.2 — no `slots=True` on dataclasses, no `zip(strict=True)`
+- Data output: `~/drift_data/` on each machine
+
+### Peer Clock Probing
+
+UDP port **19777** is used for pairwise clock offset measurement between nodes.
+Each node runs a UDP server and probes its peers every 2 seconds using NTP-style
+4-timestamp exchanges.
+
+Per-machine `--peers` arguments:
+
+| Machine | `--peers` value |
+|---------|----------------|
+| homelab | `ares=216.47.152.168:19777,chameleon=129.114.108.185:19777` |
+| chameleon | `ares=216.47.152.168:19777` |
+| ares | `chameleon=129.114.108.185:19777,ares-comp-10=172.20.101.10:19777` |
+| ares-comp-10 | `ares=172.20.1.1:19777` |
+
+Firewall: ensure UDP 19777 is open on all nodes.

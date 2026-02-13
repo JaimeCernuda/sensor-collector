@@ -1,0 +1,269 @@
+#!/usr/bin/env bash
+# 30-minute verification test for sensor collector with peer clock probing.
+#
+# Deploys latest code via git pull, starts collectors in tmux sessions on all
+# 4 Linux nodes with --peers enabled, monitors progress every 60s, and prints
+# a summary at the end.
+#
+# Usage: ./verify_30min.sh
+
+set -euo pipefail
+
+DURATION=1800  # 30 minutes
+CHECK_INTERVAL=60
+REMOTE_DIR="sensor_collector"
+PYTHON="python3"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+NC='\033[0m'  # No Color
+
+log() {
+    echo -e "[$(date -u '+%Y-%m-%d %H:%M:%S UTC')] $*"
+}
+
+ok()   { echo -e "${GREEN}OK${NC}"; }
+fail() { echo -e "${RED}FAIL${NC}"; }
+warn() { echo -e "${YELLOW}WARN${NC}"; }
+
+# --- Helper: run command on a machine (handles jump host for ares-comp-10) ---
+run_on() {
+    local machine="$1"
+    shift
+    case "$machine" in
+        ares-comp-10) ssh ares "ssh ares-comp-10 '$*'" 2>/dev/null ;;
+        *)            ssh "$machine" "$*" 2>/dev/null ;;
+    esac
+}
+
+# --- Step 1: Deploy latest code ---
+log "${CYAN}=== Step 1: Deploying latest code ===${NC}"
+
+deploy_node() {
+    local machine="$1"
+    log "  Pulling on $machine..."
+    if run_on "$machine" "cd ~/$REMOTE_DIR && git pull"; then
+        log "  $machine: $(ok)"
+    else
+        log "  $machine: $(fail) - git pull failed"
+        return 1
+    fi
+}
+
+for machine in homelab chameleon ares ares-comp-10; do
+    deploy_node "$machine"
+done
+
+# --- Step 2: Clean old verification data ---
+log "${CYAN}=== Step 2: Cleaning old data ===${NC}"
+
+for machine in homelab chameleon ares ares-comp-10; do
+    run_on "$machine" "mkdir -p ~/drift_data" || true
+done
+log "  Output directories ensured."
+
+# --- Step 3: Kill any existing collector tmux sessions ---
+log "${CYAN}=== Step 3: Stopping any existing collector sessions ===${NC}"
+
+for machine in homelab chameleon ares ares-comp-10; do
+    run_on "$machine" "tmux kill-session -t collector 2>/dev/null" || true
+done
+log "  Old sessions cleaned."
+
+# --- Step 4: Start collectors in tmux ---
+log "${CYAN}=== Step 4: Starting collectors (duration=${DURATION}s) ===${NC}"
+
+# homelab: full sensors + peers
+log "  Starting homelab..."
+ssh homelab "cd ~/$REMOTE_DIR && \
+    tmux new-session -d -s collector \
+    'PYTHONPATH=src $PYTHON -m sensor_collector -d $DURATION \
+     --peers ares=216.47.152.168:19777,chameleon=129.114.108.185:19777 \
+     2>&1 | tee ~/drift_data/collector.log'"
+log "  homelab: $(ok)"
+
+# chameleon: sudo + peers
+log "  Starting chameleon..."
+ssh chameleon "cd ~/$REMOTE_DIR && \
+    tmux new-session -d -s collector \
+    'PYTHONPATH=src sudo $PYTHON -m sensor_collector -d $DURATION \
+     --peers ares=216.47.152.168:19777 \
+     2>&1 | tee ~/drift_data/collector.log'"
+log "  chameleon: $(ok)"
+
+# ares: no-root + peers
+log "  Starting ares..."
+ssh ares "cd ~/$REMOTE_DIR && \
+    tmux new-session -d -s collector \
+    'PYTHONPATH=src $PYTHON -m sensor_collector -d $DURATION --no-root-sensors \
+     --peers chameleon=129.114.108.185:19777,ares-comp-10=172.20.101.10:19777 \
+     2>&1 | tee ~/drift_data/collector.log'"
+log "  ares: $(ok)"
+
+# ares-comp-10: via jump, no-root + peers
+log "  Starting ares-comp-10..."
+ssh ares "ssh ares-comp-10 'cd ~/$REMOTE_DIR && \
+    tmux new-session -d -s collector \
+    \"PYTHONPATH=src $PYTHON -m sensor_collector -d $DURATION --no-root-sensors \
+     --peers ares=172.20.1.1:19777 \
+     2>&1 | tee ~/drift_data/collector.log\"'"
+log "  ares-comp-10: $(ok)"
+
+log ""
+log "All collectors started. Monitoring every ${CHECK_INTERVAL}s..."
+log ""
+
+# --- Step 5: Monitor loop ---
+MACHINES=(homelab chameleon ares ares-comp-10)
+declare -A PREV_ROWS
+
+for m in "${MACHINES[@]}"; do
+    PREV_ROWS[$m]=0
+done
+
+checks_done=0
+total_checks=$(( DURATION / CHECK_INTERVAL ))
+
+while (( checks_done < total_checks )); do
+    sleep "$CHECK_INTERVAL"
+    checks_done=$(( checks_done + 1 ))
+    elapsed=$(( checks_done * CHECK_INTERVAL ))
+
+    log "${CYAN}--- Check $checks_done/$total_checks (${elapsed}s elapsed) ---${NC}"
+
+    for machine in "${MACHINES[@]}"; do
+        # Check tmux session alive
+        if run_on "$machine" "tmux has-session -t collector 2>/dev/null"; then
+            status="$(ok)"
+        else
+            status="$(fail)"
+        fi
+
+        # Check CSV row count
+        row_count=$(run_on "$machine" "wc -l ~/drift_data/*.csv 2>/dev/null | tail -1 | awk '{print \$1}'" || echo "0")
+        row_count="${row_count:-0}"
+
+        # Calculate rows since last check
+        prev="${PREV_ROWS[$machine]:-0}"
+        delta=$(( row_count - prev ))
+        PREV_ROWS[$machine]=$row_count
+
+        # Check for peer columns (only on first check)
+        if (( checks_done == 1 )); then
+            peer_cols=$(run_on "$machine" "head -1 ~/drift_data/*.csv 2>/dev/null | tr ',' '\n' | grep -c peer" || echo "0")
+            peer_info="peers=${peer_cols}"
+        else
+            peer_info=""
+        fi
+
+        printf "  %-15s session=%-4s  rows=%-6s (+%-4s) %s\n" \
+            "$machine" "$status" "$row_count" "$delta" "$peer_info"
+    done
+    echo ""
+done
+
+# --- Step 6: Final summary ---
+log "${CYAN}=== Final Summary ===${NC}"
+echo ""
+printf "%-15s  %8s  %12s  %s\n" "MACHINE" "ROWS" "PEER_COLS" "STATUS"
+printf "%-15s  %8s  %12s  %s\n" "-------" "----" "---------" "------"
+
+all_ok=true
+
+for machine in "${MACHINES[@]}"; do
+    # Final row count
+    row_count=$(run_on "$machine" "wc -l ~/drift_data/*.csv 2>/dev/null | tail -1 | awk '{print \$1}'" || echo "0")
+    row_count="${row_count:-0}"
+
+    # Peer columns in header
+    peer_cols=$(run_on "$machine" "head -1 ~/drift_data/*.csv 2>/dev/null | tr ',' '\n' | grep -c peer" || echo "0")
+
+    # Determine status
+    if (( row_count > 1700 )) && (( peer_cols > 0 )); then
+        status="$(ok)"
+    elif (( row_count > 0 )); then
+        status="$(warn)"
+        all_ok=false
+    else
+        status="$(fail)"
+        all_ok=false
+    fi
+
+    printf "%-15s  %8s  %12s  %s\n" "$machine" "$row_count" "$peer_cols" "$status"
+done
+
+echo ""
+
+# Print sample peer data from each machine
+log "${CYAN}=== Sample Peer Clock Data (last 3 rows) ===${NC}"
+echo ""
+
+for machine in "${MACHINES[@]}"; do
+    log "  $machine:"
+
+    # Get header and find peer column indices
+    header=$(run_on "$machine" "head -1 ~/drift_data/*.csv 2>/dev/null" || echo "")
+    if [ -z "$header" ]; then
+        log "    No CSV data found"
+        continue
+    fi
+
+    # Show peer-related columns from last 3 data rows
+    # First, get peer column names
+    peer_cols_list=$(echo "$header" | tr ',' '\n' | grep -n peer || true)
+    if [ -z "$peer_cols_list" ]; then
+        log "    No peer columns found"
+        continue
+    fi
+
+    log "    Peer columns: $(echo "$peer_cols_list" | tr '\n' ', ')"
+
+    # Extract peer column indices for awk
+    col_indices=$(echo "$header" | tr ',' '\n' | grep -n peer | cut -d: -f1 | tr '\n' ',' | sed 's/,$//')
+
+    if [ -n "$col_indices" ]; then
+        # Build awk print command
+        awk_fields=""
+        for idx in $(echo "$col_indices" | tr ',' ' '); do
+            if [ -z "$awk_fields" ]; then
+                awk_fields="\$$idx"
+            else
+                awk_fields="$awk_fields\",\"\$$idx"
+            fi
+        done
+
+        sample=$(run_on "$machine" "tail -3 ~/drift_data/*.csv 2>/dev/null | awk -F, '{print $awk_fields}'" || echo "")
+        if [ -n "$sample" ]; then
+            echo "$sample" | while IFS= read -r line; do
+                log "    $line"
+            done
+        fi
+    fi
+    echo ""
+done
+
+# Show any errors from logs
+log "${CYAN}=== Collector Log Errors ===${NC}"
+echo ""
+
+for machine in "${MACHINES[@]}"; do
+    errors=$(run_on "$machine" "grep -i 'error\|exception\|traceback' ~/drift_data/collector.log 2>/dev/null | tail -5" || true)
+    if [ -n "$errors" ]; then
+        log "  ${RED}$machine:${NC}"
+        echo "$errors" | while IFS= read -r line; do
+            log "    $line"
+        done
+    else
+        log "  $machine: no errors"
+    fi
+done
+
+echo ""
+if $all_ok; then
+    log "${GREEN}=== VERIFICATION PASSED ===${NC}"
+else
+    log "${YELLOW}=== VERIFICATION COMPLETED WITH WARNINGS ===${NC}"
+fi

@@ -34,5 +34,11 @@ class CollectorConfig:
     # Whether to attempt root-only sensors (RAPL, turbostat, IPMI)
     try_root_sensors: bool = True
 
+    # Peer clock probing: list of (name, host, port) tuples
+    peers: list[tuple[str, str, int]] = field(default_factory=list)
+
+    # UDP listen port for peer clock server
+    listen_port: int = 19777
+
     def __post_init__(self) -> None:
         self.output_dir = Path(self.output_dir)

@@ -137,4 +137,16 @@ def build_schema(inventory: MachineInventory, config: CollectorConfig) -> Sensor
             _add(turbostat_reader, list(turbostat_reader.COLUMNS))
             schema.stoppable.append(turbostat_reader)
 
+    # 13. Peer clock (UDP probing)
+    if config.peers:
+        from .peer_clock import PeerClockReader, PeerConfig
+
+        peer_configs = [
+            PeerConfig(name=name, host=host, port=port)
+            for name, host, port in config.peers
+        ]
+        peer_reader = PeerClockReader(peer_configs, config.listen_port)
+        _add(peer_reader, peer_reader.columns)
+        schema.stoppable.append(peer_reader)
+
     return schema

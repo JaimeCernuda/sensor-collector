@@ -55,16 +55,20 @@ ssh ares "ssh ares-comp-10 'mkdir -p ~/drift_data'" 2>/dev/null || true
 
 # Start all collectors
 # homelab: full collector, root sensors, no stress
-start_direct "homelab" "ssh homelab" ""
+start_direct "homelab" "ssh homelab" \
+    "--peers ares=216.47.152.168:19777,chameleon=129.114.108.185:19777"
 
 # chameleon: full collector, root sensors, stressed externally
-start_direct "chameleon" "ssh chameleon" ""
+start_direct "chameleon" "ssh chameleon" \
+    "--peers ares=216.47.152.168:19777"
 
 # ares master: lesser collector, no root
-start_direct "ares" "ssh ares" "--no-root-sensors"
+start_direct "ares" "ssh ares" \
+    "--no-root-sensors --peers chameleon=129.114.108.185:19777,ares-comp-10=172.20.101.10:19777"
 
 # ares-comp-10: lesser collector, no root, stressed externally
-start_jump "ares" "ares-comp-10" "--no-root-sensors"
+start_jump "ares" "ares-comp-10" \
+    "--no-root-sensors --peers ares=172.20.1.1:19777"
 
 log ""
 log "All collectors started."
