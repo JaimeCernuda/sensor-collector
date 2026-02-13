@@ -1,0 +1,35 @@
+[project]
+name = "sensor-collector"
+version = "0.1.0"
+description = "Multivariate clock drift data collector for Linux machines"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+sensor-collector = "sensor_collector.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sensor_collector"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "RUF"]
+
+[tool.pyright]
+pythonVersion = "3.11"
+venvPath = "."
+venv = ".venv"
+include = ["src", "tests"]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "pyright>=1.1", "ruff>=0.4"]
