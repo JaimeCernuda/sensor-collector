@@ -194,38 +194,38 @@ class TestReadAdjtimex:
 
 @linux_only
 class TestReadAll:
-    """Tests for ClockReader.read_all() on Linux."""
+    """Tests for ClockReader.read() on Linux."""
 
     def test_returns_dict(self) -> None:
         reader = ClockReader()
-        result = reader.read_all()
+        result = reader.read()
         assert isinstance(result, dict)
 
     def test_keys_match_columns(self) -> None:
         reader = ClockReader()
-        result = reader.read_all()
+        result = reader.read()
         assert set(result.keys()) == set(ClockReader.COLUMNS)
 
     def test_all_columns_present(self) -> None:
         reader = ClockReader()
-        result = reader.read_all()
+        result = reader.read()
         for col in ClockReader.COLUMNS:
             assert col in result
 
     def test_all_values_are_ints(self) -> None:
         reader = ClockReader()
-        result = reader.read_all()
+        result = reader.read()
         for key, value in result.items():
             assert isinstance(value, int), f"{key} is {type(value)}, expected int"
 
     def test_clock_values_positive(self) -> None:
         reader = ClockReader()
-        result = reader.read_all()
+        result = reader.read()
         assert result["ts_realtime_ns"] > 0
         assert result["ts_monotonic_ns"] > 0
         assert result["ts_mono_raw_ns"] > 0
 
     def test_adj_tick_near_10000(self) -> None:
         reader = ClockReader()
-        result = reader.read_all()
+        result = reader.read()
         assert 9000 <= result["adj_tick"] <= 11000

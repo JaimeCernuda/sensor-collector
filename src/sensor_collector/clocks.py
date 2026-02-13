@@ -158,7 +158,7 @@ class ClockReader:
             tick=tx.tick,
         )
 
-    def read_all(self) -> dict[str, int]:
+    def read(self) -> dict[str, int | float | str]:
         """Read clocks and adjtimex, return flat dict matching COLUMNS."""
         clk = self.read_clocks()
         adj = self.read_adjtimex()

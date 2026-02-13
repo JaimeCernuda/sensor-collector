@@ -91,7 +91,7 @@ class ThermalReader:
             if a zone could not be read.
         """
         result: dict[str, int | float | str] = {}
-        for zone, col in zip(self._zones, self._columns, strict=True):
+        for zone, col in zip(self._zones, self._columns):
             try:
                 raw = zone.temp_path.read_text().strip()
                 result[col] = int(raw) / 1000.0

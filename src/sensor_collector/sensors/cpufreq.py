@@ -72,7 +72,7 @@ class CpufreqReader:
             if a CPU frequency could not be read.
         """
         result: dict[str, int | float | str] = {}
-        for idx, col in zip(self._cpu_indices, self._columns, strict=True):
+        for idx, col in zip(self._cpu_indices, self._columns):
             try:
                 raw = self._paths[idx].read_text().strip()
                 result[col] = int(raw) / 1000.0

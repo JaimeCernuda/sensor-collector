@@ -128,7 +128,7 @@ class RaplReader:
             (int), or empty string if a domain could not be read.
         """
         result: dict[str, int | float | str] = {}
-        for domain, col in zip(self._domains, self._columns, strict=True):
+        for domain, col in zip(self._domains, self._columns):
             try:
                 raw = domain.energy_path.read_text().strip()
                 result[col] = int(raw)

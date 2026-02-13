@@ -94,7 +94,7 @@ class HwmonReader:
             if a sensor could not be read.
         """
         result: dict[str, int | float | str] = {}
-        for sensor, col in zip(self._sensors, self._columns, strict=True):
+        for sensor, col in zip(self._sensors, self._columns):
             try:
                 raw = sensor.path.read_text().strip()
                 result[col] = int(raw) / 1000.0
