@@ -103,18 +103,17 @@ class Chronos2Wrapper:
             # If future covariates provided, build future_df with same columns
             if future_covariates is not None:
                 fut_2d = future_covariates.reshape(horizon, -1)
-                future_df = pd.DataFrame(
-                    {
-                        "id": ["target"] * horizon,
-                        "timestamp": pd.date_range(
-                            ctx_df["timestamp"].iloc[-1] + pd.Timedelta(seconds=1),
-                            periods=horizon,
-                            freq="1s",
-                        ),
-                    }
-                )
+                fut_data: dict[str, object] = {
+                    "id": ["target"] * horizon,
+                    "timestamp": pd.date_range(
+                        ctx_df["timestamp"].iloc[-1] + pd.Timedelta(seconds=1),
+                        periods=horizon,
+                        freq="1s",
+                    ),
+                }
                 for i in range(n_features):
-                    future_df[f"cov_{i}"] = fut_2d[:, i].astype(np.float32)
+                    fut_data[f"cov_{i}"] = fut_2d[:, i].astype(np.float32)
+                future_df = pd.DataFrame(fut_data)
 
         t0 = time.perf_counter()
 

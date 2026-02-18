@@ -12,8 +12,20 @@ from pathlib import Path
 
 import pandas as pd
 
-# Default path to sensor data (relative to tick2/)
-DEFAULT_DATA_DIR = Path(__file__).resolve().parents[3] / "sensors" / "data"
+# Default path to sensor data: walk up from this file to find the repo root
+# (directory containing both tick2/ and sensors/).
+def _find_data_dir() -> Path:
+    """Locate sensors/data/ by walking up from this file."""
+    p = Path(__file__).resolve()
+    for parent in p.parents:
+        candidate = parent / "sensors" / "data"
+        if candidate.is_dir():
+            return candidate
+    # Fallback: assume repo root is two levels above tick2/
+    return p.parents[4] / "sensors" / "data"
+
+
+DEFAULT_DATA_DIR = _find_data_dir()
 
 MACHINES = ["homelab", "chameleon", "ares", "ares-comp-10"]
 
