@@ -1,0 +1,160 @@
+
+\section{ChronoTick Design}
+
+ChronoTick is a predictive time synchronization system that applies time series foundation models to forecast oscillator drift before it manifests. Where reactive approaches correct drift after detection, relying on periodic synchronization events to measure and compensate accumulated error, ChronoTick anticipates clock behavior by learning temporal patterns from streaming sensor data. The system operates as a daemon that publishes corrected timestamps through a lock-free shared memory interface, integrating transparently with existing applications at sub-microsecond read latency.
+
+The key insight is increasing effective synchronization frequency: typical NTP deployments poll every 1 to 10 minutes~\cite{ntp}, leaving the local oscillator to free-run between corrections, yet drift accumulates continuously. ChronoTick fills these gaps by generating predictions every second, analogous to how frame interpolation increases effective frame rate from sparse keyframes. By predicting clock behavior between NTP measurements rather than waiting for the next synchronization event, the system achieves sub-millisecond precision on commodity hardware with no specialized NICs, GPS receivers, or atomic clocks. Three contributions make this possible and correspond directly to the architectural components that follow: zero-shot foundation model prediction eliminates per-device calibration (Prediction Layer, Section~3.5), retrospective correction enables continuous self-improvement as ground truth arrives (Section~3.7), and multivariate compensation from commodity sensors captures the full environmental context that single-sensor approaches miss (Data Collection, Section~3.3).
+
+\subsection{Architecture}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{figures/chronotick_arch.pdf}
+    \caption{ChronoTick predictive synchronization architecture.}
+    \label{fig:arch_htick}
+\end{figure}
+
+The architecture of ChronoTick, shown in Figure~\ref{fig:arch_htick}, implements a five-layer predictive synchronization stack: the \textit{Client Interface}, \textit{Scheduler}, \textit{Prediction Layer}, \textit{Retrospective Correction}, and \textit{Data Collection}. This design prioritizes response latency through predictive scheduling that decouples model inference latency from client request response times, enabling the system to serve as a viable replacement for operating system time calls across diverse deployment scenarios.
+
+The \textbf{Client Interface} addresses the scalability challenge that operating system time calls complete in nanoseconds yet ChronoTick must serve arbitrarily many concurrent clients at comparable latencies. A daemon architecture with lock-free shared memory enables concurrent reads of pre-computed corrections without mutual exclusion overhead.
+
+The \textbf{Scheduler} resolves the orders-of-magnitude mismatch between model inference timescales (tens of milliseconds) and client query latencies (sub-millisecond) by pre-computing forecasts before clients request them. Predictive scheduling eliminates inference latency from the critical path.
+
+At the heart of the system, the \textbf{Prediction Layer} employs a dual-model architecture balancing temporal responsiveness with prediction stability. Short-horizon and long-horizon models leverage time series foundation models for zero-shot prediction, producing point estimates and uncertainty bounds through probabilistic quantile outputs. Predictions combine via inverse variance weighted fusion, automatically adapting to model confidence.
+
+The \textbf{Retrospective Correction} maintains dataset quality by validating predictions against NTP measurements, then correcting the historical dataset by interpolating between ground truth anchor points. This corrected dataset becomes the context for subsequent predictions, enabling autoregressive models to learn from mistakes and adapt to changing system dynamics.
+
+The \textbf{Data Collection} harvests timing data from network protocols and system performance metrics with dedicated CPU affinity to minimize jitter. Multivariate sensors (temperatures, CPU frequency, memory pressure, idle states, I/O) enable models to distinguish predictable environmental effects from genuine timing anomalies, a key differentiator versus Graham's single sensor approach~\cite{graham_nsdi22}.
+
+\subsection{Client Interface}
+
+ChronoTick implements a daemon architecture that pre-computes corrections in a dedicated process with CPU affinity, isolating prediction computation from client workloads. The daemon operates continuously, surviving client failures while serving all active clients. This separation enables the system to replace operating system time calls without coupling inference latency to response latency.
+
+Lock-free shared memory enables concurrent reads without mutual exclusion overhead. The system implements a single-writer-multiple-reader pattern: the daemon writes pre-computed corrections to cache-aligned shared memory while arbitrarily many clients read concurrently without locks, atomic operations, or coordination overhead. Sequence number validation detects torn reads during concurrent updates, enabling readers to retry when writes interrupt reads. This design achieves sub-microsecond read latency. The shared memory buffer contains corrections, uncertainty bounds, drift rates, validity periods, and operational status.
+
+\subsection{Multivariate Data Collection}
+
+The data collection layer acquires timing measurements optimized for foundation model input requirements, collecting synchronized timing data alongside system performance metrics with controlled frequency during warmup and operational phases. ChronoTick independently queries NTP servers and predicts the drift that accumulates between its own synchronization measurements. Because NTP polls occur at configurable intervals (every 5 seconds during warmup, less frequently during normal operation), drift between measurements is bounded and exhibits learnable temporal patterns, making it a favorable target for foundation model forecasting. Collection operates on the daemon CPU core with elevated priority to minimize measurement jitter, which proves critical for accurate drift pattern detection by forecasting models.
+
+Unlike prior approaches that rely on a single temperature sensor~\cite{graham_nsdi22}, ChronoTick collects multivariate system telemetry: CPU temperatures across multiple thermal zones, processor frequencies, idle state residency, memory pressure, I/O throughput, and additional hwmon sensors when available. This multivariate approach captures the full environmental context affecting oscillator behavior, including thermal transients, frequency scaling effects on timing circuits, and cross-correlated system dynamics that single-sensor polynomial approaches miss.
+
+ChronoTick implements NTP measurement querying multiple authoritative time servers using standard synchronization protocols. Each measurement exchange computes clock offset using the four-timestamp calculation~\cite{ntp}: $o = ((t_2 - t_1) + (t_3 - t_4)) / 2$, where $t_1$ and $t_4$ represent local timestamps while $t_2$ and $t_3$ represent server timestamps. Network delay and measurement uncertainty follow from $d = (t_4 - t_1) - (t_3 - t_2)$ and $\sigma_{\text{measurement}} = \max(d/2, \sigma_{\text{server}})$ respectively. Multiple servers are queried with outlier rejection using median absolute deviation filtering to eliminate anomalous measurements caused by network congestion. The median offset with mean round-trip delay provides improved measurement quality, reducing uncertainty.
+
+During initial deployment, no historical context exists for model forecasting. The system operates in warmup mode with elevated NTP polling at 5-second intervals, delivering corrections from direct measurements without model predictions. After 60 seconds accumulating 12 measurements, the system transitions to normal operation, activating predictive scheduling and retrospective correction.
+
+\subsection{Scheduler}
+
+Foundation model inference requires tens of milliseconds while applications demand sub-millisecond response latency; ChronoTick resolves this mismatch by pre-computing forecasts before clients need them. The scheduling architecture operates through self-rescheduling prediction tasks: each model schedules its next prediction upon completing current inference. The short-horizon model schedules frequent predictions, minimizing cache staleness. The long-horizon model schedules infrequent predictions further in advance.
+
+The scheduler manages a rolling prediction cache centered on current time, evicting past forecasts while retaining future ones. Cache hits deliver corrections with sub-millisecond latency through temporal lookup, while cache misses trigger on-demand prediction at the cost of increased response latency.
+
+\subsection{Prediction Layer}
+
+ChronoTick implements a dual-model forecasting architecture that applies pre-trained time series foundation models to predict clock drift patterns before they occur, requiring no per-device calibration or fine-tuning. Because these models learn generalizable temporal patterns from large corpora, they transfer directly to unseen oscillator environments in a zero-shot fashion, enabling proactive synchronization on any commodity server from initial deployment. The short-horizon model operates with frequent updates, limited historical context, and system metrics inputs, capturing rapid fluctuations and transient anomalies while maintaining low inference latency for immediate corrections. The long-horizon model updates infrequently with extended prediction windows and substantial historical context, providing smooth and stable drift trend estimation resistant to measurement noise and short-term variations, prioritizing prediction stability over responsiveness. Both models produce probabilistic forecasts through multi-quantile outputs that directly encode prediction uncertainty, enabling direct extraction of confidence intervals without separate uncertainty estimation procedures.
+
+\subsubsection{Prediction Inputs and Outputs}
+
+Before describing how ChronoTick corrects system timestamps, we clarify the inputs and outputs of the prediction layer. The prediction layer consumes two primary time series (historical skew in ms and drift rate in ppm, spanning the model's context window) alongside multivariate sensor covariates. Available sensor categories include CPU core, package, and peripheral temperatures, CPU operating frequencies, processor idle state (C-state) residency, memory pressure, I/O throughput (disk and network), CPU load, and system counters. The exact sensor set varies by platform and privilege level; ChronoTick ingests all available streams through Linux hwmon, procfs, and sysfs interfaces (or platform-specific equivalents on Windows).
+
+\begin{table}[h]
+\centering
+\footnotesize
+\caption{Prediction Layer Outputs}
+\label{tab:prediction_outputs}
+\begin{tabular}{@{}lp{2.8cm}ll@{}}
+\toprule
+\textbf{Output} & \textbf{Description} & \textbf{Symbol} & \textbf{Units} \\ \midrule
+Predicted skew & Clock offset from true time & $\hat{s}$ & ms \\
+Predicted drift & Rate of clock divergence & $\hat{r}$ & ppm \\
+Skew uncertainty & Skew confidence bound & $\sigma_s$ & ms \\
+Drift uncertainty & Drift confidence bound & $\sigma_r$ & ppm \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The predicted \textit{skew} $\hat{s}$ represents the instantaneous offset between the system clock and true time at the moment of prediction. The predicted \textit{drift} $\hat{r}$ represents the rate at which the system clock diverges from true time, measured in parts per million (ppm); for example, 10 ppm means the clock gains or loses 10 microseconds per second. These are distinct quantities: skew is corrected by adding an offset to the system clock, while drift is used to compensate for time elapsed since the nearest prediction. The foundation models predict both quantities simultaneously through multi-horizon forecasting, with uncertainty bounds $\sigma_s$ and $\sigma_r$ extracted directly from quantile outputs. Historical sequences span the model's context window, typically 512 measurements at 1\,Hz sampling for the long-horizon model.
+
+\subsubsection{Quantile-Based Uncertainty Extraction}
+
+Foundation models produce quantile predictions at multiple probability levels; ChronoTick uses the median as the point prediction and the quantile spread to estimate uncertainty. The extraction follows:
+\begin{equation}
+\hat{y} = q_{0.5}
+\end{equation}
+\begin{equation}
+\sigma = \frac{q_{0.9} - q_{0.1}}{2.56}
+\end{equation}
+The divisor 2.56 arises because the 10th-to-90th percentile span covers $2 \times \Phi^{-1}(0.9) \approx 2.56$ standard deviations under a Gaussian assumption.
+
+\subsubsection{Inverse Variance Fusion}
+
+The system fuses short- and long-horizon predictions using inverse variance weighting, which is provably optimal for combining unbiased estimators:
+\begin{align}
+w_i &= \frac{1/\sigma_i^2}{\sum_j 1/\sigma_j^2} \\
+\hat{y}_{\text{fused}} &= w_{\text{short}} \hat{y}_{\text{short}} + w_{\text{long}} \hat{y}_{\text{long}} \\
+\sigma_{\text{fused}} &= \frac{1}{\sqrt{1/\sigma_{\text{short}}^2 + 1/\sigma_{\text{long}}^2}}
+\end{align}
+The fused uncertainty is always smaller than either individual uncertainty, and when one model reports higher uncertainty the fusion automatically weights the more confident prediction.
+
+\subsection{Time Correction Mechanism}
+
+ChronoTick synthesizes corrected physical time by applying predicted skew and drift compensation to the system clock. The correction engine computes timestamps by applying a two-step process. First, it corrects the current system clock using the nearest predicted skew $\hat{s}_{\text{nearest}}$ from the prediction cache. Second, it compensates for elapsed time since that prediction using the predicted drift rate $\hat{r}_{\text{drift}}$; this ``walking forward'' process accounts for how the system clock continues to diverge during the interval between the prediction time and the query time.
+
+\begin{algorithm}[H]
+\caption{System Clock Correction with Predictive Skew}
+\label{algo:time_correction}
+\begin{algorithmic}[1]
+\Require Current system time $t_{\text{system}}$, Nearest predicted skew $\hat{s}_{\text{nearest}}$ at $t_{\text{nearest}}$, Predicted drift rate $\hat{r}_{\text{drift}}$ (ppm), Skew uncertainty $\sigma_s$, Drift uncertainty $\sigma_r$, Last returned time $t_{\text{prev}}$, Minimum increment $\epsilon$
+\Ensure Corrected time $t_{\text{corrected}}$, Total uncertainty $\sigma_{\text{total}}$
+\State $\Delta t \gets t_{\text{system}} - t_{\text{nearest}}$ \Comment{Elapsed since nearest prediction}
+\State $t_{\text{corrected}} \gets t_{\text{system}} + \hat{s}_{\text{nearest}} + \hat{r}_{\text{drift}} \cdot \Delta t$ \Comment{Apply skew + drift compensation}
+\State $\sigma_{\text{total}} \gets \sqrt{\sigma_s^2 + (\sigma_r \cdot \Delta t)^2}$ \Comment{Uncertainty propagation}
+\If{$t_{\text{corrected}} \leq t_{\text{prev}}$} \Comment{Monotonicity enforcement}
+    \State $t_{\text{corrected}} \gets t_{\text{prev}} + \epsilon$
+    \State $\sigma_{\text{total}} \gets \sigma_{\text{total}} + |t_{\text{corrected}} - (t_{\text{system}} + \hat{s}_{\text{nearest}} + \hat{r}_{\text{drift}} \cdot \Delta t)|$ \Comment{Inflate uncertainty}
+\EndIf
+\State \Return $t_{\text{corrected}}, \sigma_{\text{total}}$
+\end{algorithmic}
+\end{algorithm}
+
+Total uncertainty combines prediction uncertainty with temporal degradation: $\sigma^2_{\text{total}} = \sigma^2_s + \sigma^2_r \cdot (\Delta t)^2$.
+
+Because ChronoTick's own NTP measurements continuously anchor the prediction pipeline, corrections remain small adjustments bounded by the drift accumulated since the last synchronization event. Algorithm~\ref{algo:time_correction} prevents backward time jumps: if a corrected timestamp would not exceed the last returned value $t_{\text{prev}}$, the algorithm clamps the output to $t_{\text{prev}} + \epsilon$ and inflates $\sigma_{\text{total}}$ by the magnitude of the adjustment, guaranteeing temporal causality $t_{\text{corrected}}(t_1) < t_{\text{corrected}}(t_2)$ for all $t_1 < t_2$.
+
+ChronoTick also supports a conservative NTP-anchoring fallback mode that computes corrections relative to the most recent NTP measurement rather than the prediction cache, trading prediction precision for guaranteed accuracy anchored to an external time reference.
+
+\subsection{Retrospective Correction}
+
+The retrospective correction module integrates NTP measurements into the historical dataset, enabling the prediction pipeline to learn from errors and continuously improve.
+
+Time series foundation models are autoregressive: they predict future values based on recent historical context. If the historical context contains uncorrected prediction errors, the model continues making similar mistakes. When high-confidence external synchronization occurs, the system must reconcile the discrepancy $\delta = s_{\text{true}} - \hat{s}$ between true measured skew $s_{\text{true}}$ and predicted skew $\hat{s}$ at time $t$. By replacing erroneous predictions with interpolated NTP ground truth, the corrected dataset teaches the model true clock behavior patterns. The production system employs backtracking correction, which provides the strongest learning signal by replacing the entire model context window with interpolated NTP measurements:
+
+\begin{algorithm}[H]
+\caption{Backtracking Retrospective Correction}
+\label{algo:backtracking}
+\begin{algorithmic}[1]
+\Require Previous NTP skew $s_{\text{prev}}$ at time $t_{\text{prev}}$, Current NTP skew $s_{\text{curr}}$ at time $t_{\text{curr}}$, Historical timestamps $\{t_i\}_{i=1}^{n}$ in $(t_{\text{prev}}, t_{\text{curr}})$, Predicted skews $\{\hat{s}_{t_i}\}_{i=1}^n$, Context window size $w_{\text{context}}$
+\Ensure Corrected skews $\{\hat{s}'_{t_i}\}_{i=1}^{n}$
+\State $t_{\text{start}} \gets \max(t_{\text{prev}} - w_{\text{context}}, t_{\text{experiment\_start}})$ \Comment{Extend correction window}
+\For{$i = 1$ to $n$}
+    \If{$t_i \geq t_{\text{start}}$}
+        \State $\alpha \gets \frac{t_i - t_{\text{prev}}}{t_{\text{curr}} - t_{\text{prev}}}$ \Comment{Linear interpolation}
+        \State $\hat{s}'_{t_i} \gets s_{\text{prev}} + \alpha \cdot (s_{\text{curr}} - s_{\text{prev}})$
+    \Else
+        \State $\hat{s}'_{t_i} \gets \hat{s}_{t_i}$ \Comment{Preserve predictions outside window}
+    \EndIf
+\EndFor
+\State \Return $\{\hat{s}'_{t_i}\}_{i=1}^{n}$
+\end{algorithmic}
+\end{algorithm}
+
+The backtracking algorithm extends the correction window to cover the full context window that foundation models consume. For a model with context window $w_{\text{context}} = 512$ measurements at 1 Hz sampling, the correction window extends 512 seconds backward from the current NTP measurement. All predictions within this window are corrected with linear interpolation between NTP anchor points. This eliminates systematic biases, ensures the entire context window contains NTP-aligned data, and creates a continuous improvement loop where the model adapts to crystal aging and environmental changes without manual recalibration.
+
+\subsection{Design Implications}
+
+\textbf{Defense mechanisms.} ChronoTick implements multi-layer defensive validation ensuring robust operation despite noisy measurements and occasional model errors. External defenses protect against measurement anomalies: outlier filtering (adaptive EMA baseline with z-score rejection) and quality thresholds eliminate noisy NTP measurements before they contaminate the prediction pipeline. Internal defenses constrain model predictions to physically plausible ranges; predictions exceeding validation bounds are capped with inflated uncertainty, preventing erroneous forecasts from corrupting corrections. Monotonicity enforcement (Algorithm~\ref{algo:time_correction}) prevents backward time jumps when the prediction cache updates.
+
+\textbf{Model independence.} The architecture is model-agnostic, requiring only (i) multi-step forecasting, (ii) probabilistic uncertainty outputs, and (iii) autoregressive context consumption. The current implementation uses TimesFM; the architecture supports substitution as foundation model research advances without requiring changes to the synchronization framework.
+
+\textbf{Chrony integration.} Optional integration with chrony via its tempcomp directive~\cite{ntp_performance_chrony_ntpd} enables deployment flexibility. ChronoTick feeds supersampled drift predictions where chrony expects temperature compensation, enabling kernel-level clock discipline using foundation model forecasts. This represents a deployment enhancement, not a requirement; ChronoTick operates independently with direct NTP access.
+
+\textbf{Time bounding.} Corrected timestamps include uncertainty bounds $\sigma_{\text{total}}$, supporting TrueTime-like intervals $[t_{\text{corrected}} - \sigma_{\text{total}}, t_{\text{corrected}} + \sigma_{\text{total}}]$~\cite{spanner_osdi2012_truetime_gps_atomic}. This enables distributed coordination algorithms to reason about temporal uncertainty: applications can trade latency against certainty by waiting for tighter bounds. The evaluation demonstrates 94.9\% coverage within stated bounds, meeting probabilistic guarantee requirements.

@@ -1,0 +1,71 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{pifont}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=blue
+}
+
+% Table markers
+\newcommand{\cmark}{\cellcolor{green!20}{\ding{51}}}
+\newcommand{\xmark}{\cellcolor{red!20}{\ding{55}}}
+\newcommand{\nmark}{\cellcolor{yellow!30}N/A}
+
+\begin{document}
+
+\title{ChronoTick: Predictive Clock Synchronization with Bounded Uncertainty via Time Series Foundation Models}
+
+\author{
+\IEEEauthorblockN{1\textsuperscript{st} Given Name Surname}
+\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+\textit{name of organization (of Aff.)}\\
+City, Country \\
+email address or ORCID}
+\and
+\IEEEauthorblockN{2\textsuperscript{nd} Given Name Surname}
+\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+\textit{name of organization (of Aff.)}\\
+City, Country \\
+email address or ORCID}
+\and
+\IEEEauthorblockN{3\textsuperscript{rd} Given Name Surname}
+\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+\textit{name of organization (of Aff.)}\\
+City, Country \\
+email address or ORCID}
+}
+
+\maketitle
+
+\begin{abstract}
+Distributed systems requiring sub-millisecond clock precision face an uncomfortable trade-off: the Network Time Protocol (NTP) provides 1--10\,ms accuracy on commodity hardware, while the Precision Time Protocol (PTP) achieves sub-microsecond accuracy but demands specialized infrastructure costing \$50,000+ per datacenter. Google's TrueTime demonstrated that \textit{bounded uncertainty}---knowing not just ``my time is T'' but ``my time is $T \pm \epsilon$''---enables strong distributed guarantees, but requires GPS receivers and atomic clocks. We present ChronoTick, a predictive clock synchronization system that bridges this gap through software-defined time using zero-shot time series foundation models. ChronoTick introduces a dual-model architecture that combines short-horizon and long-horizon forecasting with inverse variance fusion, producing both corrected timestamps and calibrated uncertainty bounds from probabilistic quantile outputs. Sustained 10+ hour deployments across heterogeneous platforms achieve 0.604\,ms mean absolute error---2.5--3$\times$ better than commodity NTP---with 94.9\% uncertainty bound coverage meeting TrueTime-equivalent probabilistic guarantees. Zero-shot inference eliminates per-device calibration, enabling immediate deployment across consumer workstations, cloud servers, and HPC clusters. ChronoTick demonstrates that predictive synchronization via foundation models can provide TrueTime-like bounded uncertainty on commodity NTP infrastructure without specialized hardware.
+\end{abstract}
+
+\begin{IEEEkeywords}
+clock synchronization, bounded uncertainty, time series foundation models, predictive synchronization, distributed systems
+\end{IEEEkeywords}
+
+\input{sections/introduction}
+\input{sections/related-work}
+\input{sections/design}
+\input{sections/evaluations}
+\input{sections/conclusions}
+
+\bibliographystyle{IEEEtran}
+\bibliography{chronotick}
+
+\end{document}

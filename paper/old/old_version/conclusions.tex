@@ -1,0 +1,17 @@
+\section{Conclusions}
+
+We presented ChronoTick, a system that applies time series foundation models to multivariate oscillator drift prediction on commodity hardware. ChronoTick addresses all seven limitations of prior polynomial-based compensation:
+
+\begin{enumerate}
+    \item \textbf{Beyond polynomials}: A dual-model architecture with inverse variance fusion captures complex nonlinear dynamics including transient variations and long-term trends that fixed parametric models cannot represent.
+    \item \textbf{Zero per-device calibration}: Zero-shot foundation model inference eliminates the 48-hour calibration requirement, enabling immediate deployment across heterogeneous hardware.
+    \item \textbf{Hysteresis and transient capture}: The short-horizon model with frequent updates captures rapid thermal transients and hysteresis effects through multivariate context.
+    \item \textbf{Online aging adaptation}: Retrospective correction continuously refines the prediction dataset, adapting to crystal aging without manual recalibration.
+    \item \textbf{Multivariate sensors}: ChronoTick leverages CPU temperature, frequency, load, and multiple thermal zones---not just a single DIMM sensor.
+    \item \textbf{Fully open source}: The complete pipeline from data collection through model inference to real-time correction is publicly available.
+    \item \textbf{Uncertainty-aware}: Quantile-based uncertainty extraction provides calibrated confidence intervals achieving 94.9\% coverage, enabling downstream algorithms to reason about correction quality.
+\end{enumerate}
+
+Evaluation across three heterogeneous platforms (consumer workstation, cloud server, HPC cluster) demonstrates 0.604\,ms MAE without per-device training, representing 2.5--3$\times$ improvement over commodity NTP. Defensive mechanisms maintain accuracy under measurement anomalies (74\% MAE improvement from outlier filtering), and sustained 10+ hour deployments validate production-ready operation with TrueTime-equivalent probabilistic guarantees.
+
+These results demonstrate that modern ML---specifically zero-shot time series foundation models---can replace manual calibration and static polynomial fitting for software-defined oscillator compensation, democratizing precision timing for commodity servers without specialized hardware investments.

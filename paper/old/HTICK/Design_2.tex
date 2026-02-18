@@ -1,0 +1,235 @@
+
+\Section{AI-Driven Clock Prediction with Bounded Uncertainty}
+
+
+HTick is a predictive, Ai-drive time synchronization system architected specifically for decentralize time coordination. Unlike reactive synchronization approaches that correct drift after detection, HTick leverages foundation models to predict clock behavior patterns before they manifest, achieving both higher precision and lower latency through intelligent anticipation of system dynamics. The system integrates transparently into existing programs with a simple and highly performant API.
+
+HTick bridges the precision gap between NTP (1-10 ms) and PTP (sub-microsecond) identified in the introduction through software-defined time, paralleling how Software-Defined Networking replaced specialized routing hardware with programmable control planes. The key insight is increasing the effective synchronization frequency from sparse NTP measurements (every 1-10 minutes in typical deployments) to continuous predictions (every second), analogous to how frame generation increases frame rate through interpolation. By predicting clock behavior between NTP measurements rather than waiting for the next synchronization event, HTick achieves sub-millisecond precision using only commodity infrastructure: no specialized NICs, GPS receivers, or atomic clocks required.
+
+\Subsection{Architecture}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\linewidth]{ChronoTick/sections/figures/chronotick_arch.pdf}
+    \caption{HTick predictive synchronization architecture.}
+    \label{fig:arch_htick}
+\end{figure}
+
+The architecture of HTick, shown in Figure~\ref{fig:arch_htick}, implements a five-layer predictive synchronization stack optimized for distributed system temporal coordination: the \textit{Client Interface}, \textit{Scheduler}, \textit{Prediction Layer}, \textit{Retrospective Correction}, and \textit{Data Collection}. This design prioritizes response latency through predictive scheduling that decouples model inference latency from client request response times, enabling the system to serve as a viable replacement for operating system time calls across diverse deployment scenarios.
+
+The \textbf{Client Interface} addresses a fundamental scalability challenge: operating system time calls complete in hundreds of nanoseconds, yet HTick must serve corrected timestamps to arbitrarily many concurrent clients at comparable latencies without blocking on inference computations. For example, multiple FlowForge components running on the same node (HStream workers processing time-based windows, HFlow forwarders ordering multi-source streams, Hades calculators correlating timestamped events) all require synchronized timestamps simultaneously without contention. A single HTick daemon must serve all these concurrent clients at microsecond-scale latencies. The system achieves this through a daemon architecture with lock-free shared memory, enabling unlimited concurrent readers to access pre-computed corrections without mutual exclusion overhead. This separation between correction and delivery enables HTick to be a viable drop-in replacement for system time calls.
+
+The \textbf{Scheduler} addresses the orders-of-magnitude mismatch between model inference timescales and client query latencies by pre-computing forecasts before clients request them. Foundation model inference operates at tens of milliseconds while client applications demand sub-millisecond responses, creating an architectural tension. By scheduling predictions ahead of anticipated need and maintaining temporal caches of forecasts, the system completely eliminates inference latency from the critical path of client queries.
+
+At the heart of the system, the \textbf{Prediction Layer} employs a dual-model architecture to balance temporal responsiveness with prediction stability. A short-horizon model with frequent updates captures transient variations while a long-horizon model with infrequent updates provides stable trend estimation. These complementary forecasting systems leverage time series foundation models for zero-shot prediction, producing both point estimates and uncertainty bounds through probabilistic quantile outputs. Predictions combine via inverse variance weighted fusion, automatically adapting to model confidence levels to minimize uncertainty across forecast windows.
+
+The \textbf{Retrospective Correction} maintains dataset quality by validating predictions against external synchronization measurements. When NTP measurements arrive, the system identifies prediction errors by comparing forecasts to ground truth. The system then corrects the historical dataset by interpolating between NTP measurements, replacing erroneous predictions with accurate values. This corrected dataset becomes the context foundation for subsequent predictions, enabling the autoregressive models to learn from mistakes and adapt to changing system dynamics.
+
+The \textbf{Data Collection} forms the foundation, harvesting timing data from network protocols and system performance metrics with dedicated CPU affinity to minimize jitter. Progressive refinement through statistical outlier filtering and temporal smoothing transforms noisy measurements into clean context data suitable for foundation model consumption. System exogenous variables including temperature, processor frequency, and load enable models to distinguish predictable environmental effects from genuine timing anomalies.
+
+This architectural flow enables HTick to achieve the demanding precision requirements of distributed data streaming engine while operating entirely on commodity hardware through software-only prediction and correction mechanisms.
+
+\Subsection{Client Interface}
+
+
+For HTick to serve as a practical replacement for operating system time calls, the client interface must match the performance characteristics applications expect from system services: sub-microsecond latency, unlimited concurrent access, and zero contention between readers. HTick addresses this scalability challenge through a daemon architecture that pre-computes corrections in a dedicated process while exposing results via lock-free shared memory accessible to arbitrarily many concurrent clients.
+
+The daemon process operates with dedicated CPU affinity (a non administrative operation for self-owned processed), isolated from application workloads to ensure consistent prediction computation without interference from client activity. The daemon maintains continuous operation across client lifecycle events, surviving individual application failures while providing corrections to all active clients regardless of their execution state or resource consumption patterns.
+
+Lock-free shared memory enables concurrent reads without mutual exclusion overhead. The system implements a single-writer-multiple-reader pattern where the daemon writes pre-computed corrections to cache-aligned shared memory while an unlimited number of clients read concurrently without locks, atomic operations, or coordination overhead. Sequence number validation detects torn reads during concurrent updates, enabling readers to retry on the rare occasions when writes interrupt reads. This lock-free design achieves read latencies measured in the single of microseconds, even on high parallelism scenarios, while maintaining correctness guarantees. The shared memory buffer contains not only correction values but comprehensive metadata including uncertainty bounds, drift rates for client-side interpolation, validity periods, and operational status.
+
+\Subsubsection{Prediction Layer Inputs and Outputs}
+
+Before describing how HTick corrects system timestamps, we clarify the inputs and outputs of the prediction layer to avoid confusion about terminology. The prediction layer consumes historical time series data to forecast future clock behavior, producing predicted skew and drift values with uncertainty bounds.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Prediction Layer Inputs}
+\label{tab:prediction_inputs}
+\begin{tabular}{@{}lp{6.5cm}l@{}}
+\toprule
+\textbf{Input} & \textbf{Description} & \textbf{Format} \\ \midrule
+Historical skew & Time series of normalized skew measurements & ms sequence \\
+Historical drift & Time series of normalized drift rate measurements & ppm sequence \\
+CPU temperature & Processor thermal state & Celsius \\
+CPU frequency & Current processor clock speed & GHz \\
+System load & CPU utilization percentage & percent \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\centering
+\small
+\caption{Prediction Layer Outputs}
+\label{tab:prediction_outputs}
+\begin{tabular}{@{}lp{6.5cm}ll@{}}
+\toprule
+\textbf{Output} & \textbf{Description} & \textbf{Symbol} & \textbf{Units} \\ \midrule
+Predicted skew & Instantaneous clock offset from true time & $\hat{s}$ & ms \\
+Predicted drift & Rate of clock divergence & $\hat{r}$ & ppm \\
+Skew uncertainty & Confidence bound on predicted skew & $\sigma_s$ & ms \\
+Drift uncertainty & Confidence bound on predicted drift & $\sigma_r$ & ppm \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The predicted \textit{skew} $\hat{s}$ represents the instantaneous offset between the system clock and true time at the moment of prediction, analogous to the skew $|T_A - T_B|$ defined in the introduction. The predicted \textit{drift} $\hat{r}$ represents the rate at which the system clock diverges from true time, measured in parts per million (ppm); for example, 10 ppm means the clock gains or loses 10 microseconds per second. These are distinct quantities: skew is corrected by adding an offset to the system clock, while drift is used to compensate for time elapsed since the nearest prediction. The foundation models predict both quantities simultaneously through multi-horizon forecasting, with uncertainty bounds $\sigma_s$ and $\sigma_r$ extracted directly from quantile outputs.
+
+\Subsubsection{Time Correction Mechanism}
+
+
+HTick synthesizes corrected physical time by applying predicted skew and drift compensation to the system clock, providing temporal precision exceeding traditional reactive approaches.
+
+\insight{System Clock Correction with Predictive Skew}{Correct the system clock by applying the predicted skew from the nearest prediction, then walk forward with elapsed time and predicted drift compensation has proven more accurate that walking from the previous NTP measurement.}
+
+The correction engine computes timestamps by applying a two-step process. First, it corrects the current system clock using the nearest predicted skew $\hat{s}_{\text{nearest}}$ from the prediction cache. Second, it compensates for elapsed time since that prediction using the predicted drift rate $\hat{r}_{\text{drift}}$; this ``walking forward'' process accounts for how the system clock continues to diverge during the interval between the prediction time and the query time. Given the nearest prediction providing skew $\hat{s}_{\text{nearest}}$ at time $t_{\text{nearest}}$, the corrected timestamp at query time $t_{\text{query}}$ follows:
+
+\begin{algorithm}[H]
+\caption{System Clock Correction with Predictive Skew}
+\label{algo:time_correction}
+\begin{algorithmic}[1]
+\Require Current system time $t_{\text{system}}$, Nearest predicted skew $\hat{s}_{\text{nearest}}$ at $t_{\text{nearest}}$, Predicted drift rate $\hat{r}_{\text{drift}}$ (ppm), Skew uncertainty $\sigma_s$, Drift uncertainty $\sigma_r$
+\Ensure Corrected time $t_{\text{corrected}}$, Total uncertainty $\sigma_{\text{total}}$
+\State $\Delta t \gets t_{\text{system}} - t_{\text{nearest}}$ \Comment{Elapsed since nearest prediction}
+\State $t_{\text{corrected}} \gets t_{\text{system}} + \hat{s}_{\text{nearest}} + \hat{r}_{\text{drift}} \cdot \Delta t$ \Comment{Apply skew + drift compensation}
+\State $\sigma_{\text{total}} \gets \sqrt{\sigma_s^2 + (\sigma_r \cdot \Delta t)^2}$ \Comment{Uncertainty propagation}
+\State \Return $t_{\text{corrected}}, \sigma_{\text{total}}$
+\end{algorithmic}
+\end{algorithm}
+
+This approach proved more successful in practice than NTP-anchored correction, which while accurate, exhibited lower precision due to the temporal distance between sparse NTP measurements and query times. Still, NTP-anchoring can be used if violations of the monotonicity of the clock are observed on the system.
+
+Total uncertainty combines prediction uncertainty with temporal degradation growing with elapsed time since the nearest prediction. The uncertainty propagation formula $\sigma^2_{\text{total}} = \sigma^2_s + \sigma^2_r \cdot (\Delta t)^2$ captures two distinct error sources: the prediction uncertainty $\sigma_s$ from the model forecast, and accumulating drift uncertainty growing quadratically with elapsed time. Corrections apply with strict monotonicity guarantees ensuring temporal causality: $t_{\text{corrected}}(t_1) < t_{\text{corrected}}(t_2)$ for all $t_1 < t_2$. 
+
+
+\Subsection{Data Collection}
+
+
+The data collection layer acquires timing measurements optimized for foundation model input requirements, collecting synchronized timing data alongside system performance metrics with controlled frequency during warmup and operational phases. Collection operates the daemon CPU core with elevated priority to minimize measurement jitter, which proves critical for accurate drift pattern detection by forecasting models.
+
+HTick implements NTP measurement querying multiple authoritative time servers using standard synchronization protocols. Each measurement exchange computes clock offset using the four-timestamp calculation: $o = ((t_2 - t_1) + (t_3 - t_4)) / 2$, where $t_1$ and $t_4$ represent local timestamps while $t_2$ and $t_3$ represent server timestamps. Network delay and measurement uncertainty follow from $d = (t_4 - t_1) - (t_3 - t_2)$ and $\sigma_{\text{measurement}} = \max(d/2, \sigma_{\text{server}})$ respectively. Multiple servers are queried with outlier rejection using median absolute deviation filtering to eliminate anomalous measurements caused by network congestion. The median offset with mean round-trip delay provides improved measurement quality, reducing uncertainty.
+
+System exogenous variables including CPU temperature, processor frequency, and load enable models to predict environmental effects on timing anomalies. These metrics are collected synchronously with NTP measurements, providing foundation models with contextual information that captures the relationship between system state and clock behavior patterns.
+
+The system operates through two distinct phases addressing the cold-start challenge: foundation models require historical context to generate meaningful forecasts, yet no such context exists during initial deployment. During warmup, the system operates in conservative mode collecting network time measurements at elevated frequency (every 5 seconds) while delivering corrections derived directly from these measurements without model predictions. This bootstrap period accumulates sufficient measurement history for models to establish baseline clock behavior patterns while avoiding premature predictions from models operating with insufficient context. After quality gates confirm adequate dataset accumulation (typically 60 seconds yielding 12 measurements), the system transitions to normal operation, activating predictive scheduling and retrospective correction mechanisms.
+
+\Subsection{Retrospective Correction}
+
+
+The retrospective correction module maintains prediction accuracy by integrating external synchronization measurements into the historical dataset, allowing new high-quality measurements to reveal previous prediction errors. The system must thus incorporate this information to improve future predictions while preserving temporal causality. HTick implements retrospective correction algorithms spanning a design spectrum between causal consistency preservation and rapid accuracy improvement.
+
+\insight{Retrospective Dataset Correction}{When new NTP measurements reveal prediction errors, correct the historical dataset retroactively rather than only adjusting future predictions, enabling foundation models to learn from mistakes through autoregressive training.}
+
+Time series foundation models are autoregressive, they predict future values based on recent historical context. If the historical context contains uncorrected prediction errors, the model continues making similar mistakes. When high-confidence external synchronization occurs, the system must reconcile the discrepancy $\delta = s_{\text{true}} - \hat{s}$ between true measured skew $s_{\text{true}}$ and predicted skew $\hat{s}$ at time $t$.  By replacing erroneous predictions with interpolated NTP ground truth, the corrected dataset teaches the model true clock behavior patterns. The production system employs backtracking correction, which provides the strongest learning signal by replacing the entire model context window with interpolated NTP measurements:
+
+\begin{algorithm}[H]
+\caption{Backtracking Retrospective Correction}
+\label{algo:backtracking}
+\begin{algorithmic}[1]
+\Require Previous NTP skew $s_{\text{prev}}$ at time $t_{\text{prev}}$, Current NTP skew $s_{\text{curr}}$ at time $t_{\text{curr}}$, Historical timestamps $\{t_i\}_{i=1}^{n}$ in $(t_{\text{prev}}, t_{\text{curr}})$, Predicted skews $\{\hat{s}_{t_i}\}_{i=1}^n$, Context window size $w_{\text{context}}$
+\Ensure Corrected skews $\{\hat{s}'_{t_i}\}_{i=1}^{n}$
+\State $t_{\text{start}} \gets \max(t_{\text{prev}} - w_{\text{context}}, t_{\text{experiment\_start}})$ \Comment{Extend correction window}
+\For{$i = 1$ to $n$}
+    \If{$t_i \geq t_{\text{start}}$}
+        \State $\alpha \gets \frac{t_i - t_{\text{prev}}}{t_{\text{curr}} - t_{\text{prev}}}$ \Comment{Linear interpolation}
+        \State $\hat{s}'_{t_i} \gets s_{\text{prev}} + \alpha \cdot (s_{\text{curr}} - s_{\text{prev}})$
+    \Else
+        \State $\hat{s}'_{t_i} \gets \hat{s}_{t_i}$ \Comment{Preserve predictions outside window}
+    \EndIf
+\EndFor
+\State \Return $\{\hat{s}'_{t_i}\}_{i=1}^{n}$
+\end{algorithmic}
+\end{algorithm}
+
+The backtracking algorithm extends the correction window beyond the interval between consecutive NTP measurements to cover the full context window that foundation models consume for generating predictions. For a model with context window $w_{\text{context}} = 512$ measurements at 1 Hz sampling (512 seconds), the correction window extends 512 seconds backward from the current NTP measurement. All skew and drift predictions within this extended window are corrected with linear interpolation between bounding NTP anchor points, effectively transforming the dataset into what would have been observed if NTP measurements had been available continuously.
+
+This eliminates systematic prediction biases from the training dataset, if the model consistently over-predicts or under-predicts drift, these errors are removed and replaced with ground truth interpolations. Second, it ensures the entire context window fed to the model during the next prediction cycle contains NTP-aligned data rather than a mixture of accurate and erroneous predictions, preventing error propagation through the autoregressive mechanism. This creates a continuous improvement loop: predictions are generated, validated against NTP ground truth when measurements arrive, errors are corrected in the historical dataset, and improved predictions are generated using the corrected history as context.
+
+
+\Subsection{Scheduler}
+
+
+The predictive scheduler addresses a fundamental architectural challenge in applying foundation models to real-time coordination: model inference operates on timescales of tens of milliseconds, while applications demand sub-millisecond response latency for temporal queries. Computing corrections on-demand inherently couple inference latency to response latency making them incompatible. HTick resolves this tension through predictive scheduling that completely decouples prediction computation from prediction delivery, pre-computing forecasts before agents request them and serving cached results with microsecond-scale lookup latency.
+
+\insight{Predictive Scheduling}{As foundation model inference (45-100ms) is orders of magnitude slower than required response latency (<1ms). By scheduling prediction tasks ahead of when results will be requested and maintaining temporal caches, the system transforms ML latency characteristics from blocking operations to asynchronous background tasks, enabling foundation models to serve real-time systems.}
+
+The scheduling architecture operates through self-rescheduling prediction tasks that maintain continuous forecast availability across future time horizons. Each forecasting model schedules its next prediction cycle upon completing current inference, creating autonomous prediction loops that populate the forecast cache without external coordination. The short-horizon model schedules frequent predictions within the bounds of their forecasting window, ensuring that forecasts are always available while minimizing cache staleness. The long-horizon model schedules predictions infrequently, but further in advance to account for the longer inference times. This self-scheduling design proves robust to inference time variations and model failures, as each prediction task independently reschedules itself rather than depending on centralized scheduling logic that could create single points of failure.
+
+The scheduler also manages the system cache containing the set of predictions from the models. The cache maintains a rolling window of predictions centered on current time, evicting forecasts for temporal points that have already passed while retaining those for upcoming time points where agents are likely to request corrected timestamps. Cache hits deliver corrections with sub-millisecond latency through simple temporal lookup, while cache misses trigger fallback mechanisms that compute on-demand predictions at the cost of increased response latency. 
+
+\Subsection{Prediction Layer}
+
+
+HTick implements a dual-model forecasting architecture leveraging time series foundation models to predict clock drift patterns before they occur, enabling proactive rather than reactive synchronization. The architecture balances temporal responsiveness with prediction stability through complementary forecasting models operating at different timescales, update frequencies, and prediction horizons.
+
+The short-horizon model operates with frecuent update intervals of short prediction windows, utilizes limited historical context enriched with system metrics to capture rapid fluctuations and transient anomalies while maintaining low inference latency. This model provides immediate corrections, prioritizing responsiveness over long-term trend accuracy. Conversely, the long-horizon model updates with less frequency  and extended prediction windows using substantial historical context, providing smooth and stable drift trend estimation resistant to measurement noise and short-term variations. This model accepts longer inference times given the infrequent update cycle, prioritizing prediction stability and uncertainty quantification over responsiveness.
+
+\insight{Dual-Model Temporal Decomposition}{
+Employ two complementary forecasting models: a short-horizon model with frequent updates capturing system metrics and rapid variations, and a long-horizon model with infrequent updates providing stable trend estimation.
+}
+
+Required foundation models for HTick must produce probabilistic forecasts through multi-quantile outputs that directly encode prediction uncertainty. Rather than requiring separate uncertainty estimation procedures, the models output predictions at multiple probability levels simultaneously, enabling direct extraction of confidence intervals.
+
+\begin{algorithm}[H]
+\caption{Quantile-Based Uncertainty Extraction}
+\label{algo:quantile_uncertainty}
+\begin{algorithmic}[1]
+\Require Model quantile predictions $\{q_p : p \in [0.1, 0.2, \ldots, 0.9]\}$, Confidence level $\alpha$ (default 0.8)
+\Ensure Point prediction $\hat{y}$, Uncertainty estimate $\sigma$
+\State $\hat{y} \gets q_{0.5}$ \Comment{Median as point prediction}
+\State $q_{\text{low}} \gets q_{0.1}$ \Comment{10th percentile}
+\State $q_{\text{high}} \gets q_{0.9}$ \Comment{90th percentile}
+\State $\sigma \gets \frac{q_{\text{high}} - q_{\text{low}}}{2.56}$ \Comment{$2.56 \approx 2 \times \Phi^{-1}(0.9)$ for normal distribution}
+\State \Return $\hat{y}, \sigma$
+\end{algorithmic}
+\end{algorithm}
+
+The conversion factor 2.56 arises from the relationship between quantile spreads and standard deviations under the Gaussian assumption: the interval from the 10th to 90th percentile spans approximately $2 \times 1.28\sigma = 2.56\sigma$ for a normal distribution, where $\Phi^{-1}(0.9) \approx 1.28$ is the inverse cumulative distribution function. This extraction provides uncertainty estimates directly from the model's probabilistic output without requiring separate calibration procedures, though the system can optionally apply empirical correction factors when the Gaussian assumption proves inaccurate for specific deployment environments.
+
+\insight{Quantile-Based Uncertainty Quantification}{
+Extract uncertainty estimates directly from foundation model quantile outputs rather than training separate uncertainty estimation models.
+}
+
+The system combines predictions using mathematically optimal inverse variance weighted fusion that automatically adapts to model confidence levels. When both models provide predictions with uncertainty estimates represented by standard deviations $\sigma_{\text{short}}$ and $\sigma_{\text{long}}$, the fusion weights derive from inverse variance:
+
+\begin{algorithm}[H]
+\caption{Inverse Variance Weighted Prediction Fusion}
+\label{algo:fusion}
+\begin{algorithmic}[1]
+\Require Short-term prediction $\hat{y}_{\text{short}}$ with uncertainty $\sigma_{\text{short}}$, Long-term prediction $\hat{y}_{\text{long}}$ with uncertainty $\sigma_{\text{long}}$
+\Ensure Fused prediction $\hat{y}_{\text{fused}}$, Fused uncertainty $\sigma_{\text{fused}}$
+\State $w_{\text{short}} \gets \frac{1/\sigma_{\text{short}}^2}{1/\sigma_{\text{short}}^2 + 1/\sigma_{\text{long}}^2}$ \Comment{Compute inverse variance weights}
+\State $w_{\text{long}} \gets \frac{1/\sigma_{\text{long}}^2}{1/\sigma_{\text{short}}^2 + 1/\sigma_{\text{long}}^2}$
+\State $\hat{y}_{\text{fused}} \gets w_{\text{short}} \cdot \hat{y}_{\text{short}} + w_{\text{long}} \cdot \hat{y}_{\text{long}}$ \Comment{Weighted combination}
+\State $\sigma_{\text{fused}} \gets \frac{1}{\sqrt{1/\sigma_{\text{short}}^2 + 1/\sigma_{\text{long}}^2}}$ \Comment{Optimal uncertainty reduction}
+\State \Return $\hat{y}_{\text{fused}}, \sigma_{\text{fused}}$
+\end{algorithmic}
+\end{algorithm}
+
+This fusion strategy is provably optimal in minimizing the variance of the combined prediction when both models are unbiased estimators of the true value. The fused uncertainty $\sigma_{\text{fused}}$ is always smaller than either individual model uncertainty, achieving variance reduction through the statistical principle that combining independent estimates reduces total uncertainty. When one model reports much higher uncertainty than the other, the fusion automatically weights the more confident prediction more heavily, enabling graceful degradation when individual models encounter difficulties while maintaining overall system precision.
+
+\Subsection{Design Implications}
+
+\Subsubsection{Model Independence and Portability}
+
+As foundation model research advances rapidly, HTick's architecture must not be coupled to specific model implementations. Today's state-of-the-art models (TimesFM, Chronos, Moirai, TimeGPT) may be superseded by more capable alternatives, and different deployment environments may favor different model families based on hardware constraints, accuracy requirements, or inference latency budgets. HTick implements a model-agnostic architecture that decouples the synchronization framework from specific foundation model implementations, enabling a ``bring your own model'' deployment strategy. Rather than hardcoding dependencies on particular forecasting systems, the architecture defines a minimal interface contract that any time series foundation model can satisfy, promoting extensibility and adaptation to evolving model capabilities.
+
+The core interface requirements impose minimal constraints on model selection while ensuring compatibility with the predictive synchronization architecture. A compatible foundation model must satisfy three essential capabilities: \textit{(i)} time series forecasting that produces multi-step-ahead predictions from historical sequences, enabling the system to pre-compute corrections across future time horizons; \textit{(ii)} uncertainty quantification that provides confidence estimates for predictions through probabilistic outputs, confidence intervals, or ensemble variance, enabling rigorous propagation of temporal uncertainty to downstream agents; and \textit{(iii)} autoregressive prediction that consumes recent historical context to generate forecasts, enabling the retrospective correction mechanism to improve future predictions through dataset refinement.
+
+Beyond these essential requirements, several optional capabilities enhance system performance when available. Large context windows (512 or more historical measurements) improve long-term trend detection and enable more aggressive retrospective correction by providing models with extended temporal context. Fast inference latency (sub-second for short-horizon predictions) enables tighter prediction scheduling loops, reducing cache staleness and improving correction responsiveness. Zero-shot forecasting capability eliminates per-deployment training requirements, dramatically simplifying operational deployment across heterogeneous system environments.
+
+The current implementation employs TimesFM as the primary forecasting engine, selected for its native quantile output, flexible prediction horizons, and production-grade inference performance. However, the architecture readily accommodates alternative foundation models from diverse model families.
+
+\Subsubsection{Defense Mechanisms for Production Robustness}
+
+HTick implements multi-layer defensive validation ensuring robust operation despite noisy measurements and occasional model errors. These mechanisms operate at two levels: external defenses protecting against measurement anomalies, and internal defenses constraining model predictions to physically plausible ranges.
+
+\textbf{External Defense Mechanisms:} To ensure the correct correction of the time data and avoid context poisoning of the model, progressive refinement through statistical outlier filtering and temporal smoothing transforms possibly noisy network measurements into clean training data suitable for foundation model consumption. The outlier filter implements adaptive exponential moving average baseline tracking with z-score rejection, protecting against both individual measurement anomalies and gradual baseline drift during sparse NTP sampling intervals. Quality thresholds filter measurements with excessive uncertainty (greater than 10 milliseconds default threshold) to maintain prediction model accuracy requirements.
+
+\textbf{Internal Defense Mechanisms:} Foundation models, while powerful, can occasionally produce catastrophic predictions that diverge dramatically from physical clock behavior. HTick implements multi-layer defensive validation constraining predictions to physically plausible ranges while preserving model expressiveness for normal operation. Predictions undergo validation through absolute magnitude thresholds derived from recent measurement history, relative deviation limits compared to observed patterns, and statistical consistency checks against measurement distributions. Predictions exceeding defensive bounds are capped to maximum plausible deviations with appropriately increased uncertainty bounds, preventing individual erroneous forecasts from contaminating the correction system while signaling degraded prediction quality through uncertainty quantification.
+
+This layered defensive approach proved essential in production deployments where network anomalies (congestion, asymmetric routing) create measurement outliers, and foundation models occasionally produce predictions diverging from physical clock behavior. The defenses operate transparently without requiring manual tuning, automatically adapting thresholds based on recent measurement history.
+
+

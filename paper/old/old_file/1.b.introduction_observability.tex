@@ -1,0 +1,21 @@
+\section{Introduction}
+
+Modern distributed systems---microservices, serverless functions, multi-agent systems---generate event streams across dozens or hundreds of independent processes. Understanding system behavior requires correlating these events: reconstructing request flows, diagnosing latency, detecting anomalies. This correlation depends fundamentally on temporal agreement: \textit{when} did each service act, and can we determine whether event $X$ happened before or after event $Y$?
+
+The current observability stack answers these questions poorly. OpenTelemetry, Jaeger, and Zipkin all rely on system timestamps for span timing and trace construction. These timestamps come from NTP-synchronized clocks~\cite{ntp} with 1--10\,ms uncertainty on local networks and up to 100\,ms across the internet. For microservice architectures where meaningful events occur at sub-millisecond granularity---a database query completing in 200\,$\mu$s, a cache hit resolving in 50\,$\mu$s, a network hop adding 100\,$\mu$s---NTP's uncertainty makes precise event ordering impossible. A span that appears to end before it starts, or a response that seems to arrive before its request, are common artifacts of clock disagreement in distributed traces.
+
+Logical clocks~\cite{hlc_podc2014_kulkarni_causality} provide causal ordering guarantees but sacrifice real-time semantics. A Hybrid Logical Clock can tell you that event $A$ causally precedes event $B$, but it cannot tell you that $A$ occurred at 14:03:22.001 and $B$ at 14:03:22.003. This loss of real-time semantics prevents cross-system correlation (correlating application traces with infrastructure metrics, external API calls, or human-readable timelines) and makes it impossible to answer ``what happened in the 500\,$\mu$s before the error?'' with precision.
+
+The Precision Time Protocol (PTP)~\cite{ptp} achieves sub-microsecond accuracy but requires specialized hardware (PTP-capable NICs, transparent clock switches, GPS grandmasters) costing \$50,000+ per datacenter~\cite{ptp_hardware_costs_survey,meta_ptp_time_appliances}. This infrastructure investment is impractical for the heterogeneous, multi-cloud environments where observability is most needed.
+
+What observability requires is \textit{bounded precision}: timestamps with known, quantified uncertainty. If we know event $A$ occurred at $t_A \pm \epsilon_A$ and event $B$ at $t_B \pm \epsilon_B$, we can make principled ordering decisions. When $t_A + \epsilon_A < t_B - \epsilon_B$, we are confident $A$ preceded $B$. When intervals overlap, we acknowledge ordering ambiguity rather than presenting a potentially incorrect definitive order. This concept, pioneered by Google's TrueTime~\cite{spanner_osdi2012_truetime_gps_atomic}, transforms observability from ``best-effort timestamps'' to ``timestamps with confidence intervals.''
+
+We present ChronoTick, a lightweight daemon that provides precise, bounded timestamps to distributed systems through ML-driven clock prediction. ChronoTick applies zero-shot time series foundation models~\cite{TimesFM,Chronos,MOIRAI} to predict clock drift between NTP measurements, converting sparse synchronization events into continuous, uncertainty-aware corrections.
+
+Our contributions:
+\begin{enumerate}
+    \item \textbf{Bounded precision for ordering confidence}: ChronoTick provides calibrated uncertainty bounds (94.9\% coverage) enabling principled event ordering decisions---systems can distinguish ``definitely ordered'' from ``ambiguous'' event pairs.
+    \item \textbf{Sub-millisecond accuracy on commodity hardware}: 0.604\,ms MAE without specialized timing infrastructure, sufficient for correlating events at microservice-relevant timescales.
+    \item \textbf{Zero-configuration deployment}: Zero-shot foundation model inference requires no per-device calibration. A single daemon per node serves all co-located services through lock-free shared memory with 2\,$\mu$s access latency---negligible instrumentation overhead.
+    \item \textbf{Sustained production precision}: 10+ hour deployments maintain bounded accuracy with self-healing capabilities, validating viability for production observability infrastructure.
+\end{enumerate}

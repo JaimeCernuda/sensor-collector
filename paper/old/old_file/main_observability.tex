@@ -1,0 +1,71 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{pifont}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=blue
+}
+
+% Table markers
+\newcommand{\cmark}{\cellcolor{green!20}{\ding{51}}}
+\newcommand{\xmark}{\cellcolor{red!20}{\ding{55}}}
+\newcommand{\nmark}{\cellcolor{yellow!30}N/A}
+
+\begin{document}
+
+\title{ChronoTick: Precise Temporal Semantics for Distributed Systems Observability}
+
+\author{
+\IEEEauthorblockN{1\textsuperscript{st} Given Name Surname}
+\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+\textit{name of organization (of Aff.)}\\
+City, Country \\
+email address or ORCID}
+\and
+\IEEEauthorblockN{2\textsuperscript{nd} Given Name Surname}
+\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+\textit{name of organization (of Aff.)}\\
+City, Country \\
+email address or ORCID}
+\and
+\IEEEauthorblockN{3\textsuperscript{rd} Given Name Surname}
+\IEEEauthorblockA{\textit{dept. name of organization (of Aff.)} \\
+\textit{name of organization (of Aff.)}\\
+City, Country \\
+email address or ORCID}
+}
+
+\maketitle
+
+\begin{abstract}
+Distributed systems observability relies on correlating events across independent services, but accurate correlation requires temporal agreement that commodity infrastructure cannot guarantee. Current observability stacks (OpenTelemetry, Jaeger, Zipkin) depend on NTP with 1--10\,ms uncertainty---insufficient for sub-millisecond event ordering in microservice architectures. Logical clocks provide causal ordering but lose real-time semantics essential for cross-system correlation and human-readable timelines. We present ChronoTick, a lightweight daemon that provides precise, bounded timestamps to observability infrastructure through ML-driven clock prediction. ChronoTick applies zero-shot time series foundation models to predict clock drift between NTP measurements, achieving 0.604\,ms mean absolute error with 94.9\% uncertainty coverage. Its lock-free shared memory interface adds only 2\,$\mu$s overhead per timestamp---negligible compared to typical instrumentation costs. A single daemon instance serves all services on a node, requiring no application modification beyond replacing system clock calls. By providing bounded uncertainty (``this event occurred at $T \pm \epsilon$''), ChronoTick enables principled ordering decisions: events are correctly ordered when their uncertainty intervals do not overlap. We evaluate across heterogeneous platforms and discuss implications for trace ordering accuracy and log correlation in production observability pipelines.
+\end{abstract}
+
+\begin{IEEEkeywords}
+distributed observability, temporal semantics, clock synchronization, event ordering, time series foundation models
+\end{IEEEkeywords}
+
+\input{sections/introduction}
+\input{sections/related-work}
+\input{sections/design}
+\input{sections/evaluations}
+\input{sections/conclusions}
+
+\bibliographystyle{IEEEtran}
+\bibliography{chronotick}
+
+\end{document}

@@ -1,0 +1,36 @@
+\section{Introduction}
+
+Every commodity server relies on a cheap, uncompensated quartz crystal oscillator (XO) whose frequency varies $\pm$20--50\,ppm with temperature. A 10\,$^{\circ}$C temperature swing from CPU load produces ${\sim}$10\,$\mu$s/s of uncorrected drift. Over minutes of holdover between NTP corrections, this accumulates to tens or hundreds of microseconds of clock error. NTP~\cite{ntp} and PTP~\cite{ptp} correct drift periodically, but between corrections the clock free-runs. Temperature-compensated crystal oscillators (TCXOs) reduce this sensitivity by $10{-}100\times$ through analog compensation circuits, but they cost \$5--50 per unit and require board-level integration unavailable in commodity servers.
+
+The question driving this work is: \textit{how far can software-only correction using modern ML and foundation time series models push oscillator compensation on commodity hardware?}
+
+The single most relevant prior work is Graham~\cite{graham_nsdi22}, which demonstrated that reading commodity DIMM temperature sensors and fitting cubic polynomials to the temperature-frequency relationship reduces drift by 2000$\times$ (200\,ppm to 100\,ppb), effectively building a software-defined TCXO. Graham's key finding was that the DIMM sensor serves as a better crystal proxy than the CPU die temperature due to lower thermal lag, and that each crystal has a unique frequency-temperature curve due to manufacturing variance in AT-cut angle. This landmark result established that commodity \texttt{hwmon} sensors contain sufficient signal for software-defined clock compensation.
+
+However, Graham's approach has seven significant limitations that define our research gap:
+\begin{enumerate}
+    \item \textbf{Cubic polynomial only}: no ML, no ensemble methods, no neural approaches---limited to a fixed parametric model that cannot capture complex nonlinear dynamics.
+    \item \textbf{48-hour per-device offline calibration}: each server requires a dedicated multi-day calibration run before compensation can begin, impractical at datacenter scale.
+    \item \textbf{No hysteresis modeling}: crystals drift differently during heating versus cooling (${\sim}$50--200\,ppb hysteresis), which a static polynomial cannot capture.
+    \item \textbf{No aging adaptation}: crystal oscillators age 3--5\,ppm/year; a statically calibrated model becomes stale without continuous adaptation.
+    \item \textbf{Single sensor}: uses only DIMM temperature, ignoring dozens of available thermal zones, CPU frequency steps, interrupt rates, and other correlated signals.
+    \item \textbf{Not open source}: code was never released, preventing reproduction or extension.
+    \item \textbf{No uncertainty bounds}: provides point corrections only, with no confidence intervals for downstream algorithms to reason about correction quality.
+\end{enumerate}
+
+Meanwhile, \texttt{chrony}'s \texttt{tempcomp} directive already provides quadratic polynomial compensation from a single \texttt{hwmon} sensor, achieving a 3.54$\times$ improvement (offset standard deviation from 6.3\,$\mu$s to 1.78\,$\mu$s)~\cite{ntp_performance_chrony_ntpd}. This establishes our minimum baseline to beat.
+
+Recent advances in time series foundation models (TSFMs) present an opportunity to address all seven limitations simultaneously. Models including Chronos~\cite{Chronos}, TimesFM~\cite{TimesFM}, Moirai~\cite{MOIRAI}, and TTMs~\cite{TTMs} achieve competitive forecasting accuracy across diverse domains through zero-shot inference---requiring no per-device training or fine-tuning. Critically, these models produce probabilistic forecasts through multi-quantile outputs that directly encode prediction uncertainty, providing the confidence intervals Graham's approach lacks. The zero-shot capability directly addresses the calibration weakness: a pretrained model can predict drift without per-device training.
+
+The intersection of \{ML beyond polynomials\} + \{commodity Linux \texttt{hwmon} sensors\} + \{clock synchronization integration\} + \{open source\} + \{uncertainty bounds\} is \textbf{completely unoccupied} in the literature.
+
+We present ChronoTick, a system that fills this gap through the following contributions:
+
+\begin{enumerate}
+    \item \textbf{Multivariate ML drift prediction}: ChronoTick leverages not just temperature but CPU frequency, system load, and multiple thermal zones---capturing environmental dynamics that single-sensor polynomial approaches miss.
+    \item \textbf{Foundation time series models for clock drift}: We are the first to apply zero-shot TSFMs to oscillator drift prediction. Zero-shot inference eliminates Graham's 48-hour per-device calibration entirely.
+    \item \textbf{Online adaptive correction}: A retrospective correction mechanism continuously refines the prediction dataset, enabling adaptation to crystal aging and environmental changes without manual recalibration.
+    \item \textbf{Open-source system}: ChronoTick is the first open-source implementation of ML-based clock compensation, shipping the full pipeline from data collection through model inference to real-time correction.
+    \item \textbf{Uncertainty-aware corrections}: Quantile-based uncertainty extraction from foundation model outputs provides calibrated confidence intervals achieving 94.9\% coverage, enabling downstream algorithms to reason about correction quality.
+\end{enumerate}
+
+ChronoTick achieves 0.604\,ms MAE across heterogeneous platforms without per-device training, maintaining 2.5--3$\times$ better temporal consistency than commodity NTP while providing TrueTime-equivalent probabilistic guarantees on commodity hardware.

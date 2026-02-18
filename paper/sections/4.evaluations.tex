@@ -1,0 +1,180 @@
+
+\section{Evaluation}
+
+We evaluate ChronoTick through two complementary phases. First, we benchmark foundation models on clock drift data and validate architectural design choices through component ablation studies. This internal validation establishes the optimal system configuration: dual-model architecture with retrospective correction achieving 0.604 ms mean absolute error (MAE), representing 2.7$\times$ improvement over single-model alternatives.
+
+Second, we demonstrate production performance across real-world scenarios: microsecond-scale client access latency validates deployment viability, defensive mechanisms maintain accuracy under measurement anomalies (outlier detection improving MAE by 74\%), unsynchronized clock experiments demonstrate bounded predictions even with natural drift rates reaching -7.877 ms/hour, and sustained 8-hour deployments achieve 94.9\% uncertainty bound coverage while maintaining 2.4-3.3$\times$ better temporal consistency than commodity NTP implementations. Experiments span three diverse platforms (consumer workstations running Windows, cloud servers running Debian, HPC cluster nodes running Ubuntu), validating zero-shot generalization across varying hardware configurations, operating systems, and network characteristics without requiring per-device training or calibration.
+
+\subsection{Experimental Setup}
+
+\textbf{Software.} All evaluations employ TimesFM foundation models (v2.5-200m) for temporal prediction. The system uses Python 3.9-3.12 across platforms with pytorch 2.1.0, timesfm 1.0.0, and numpy 1.24.0. NTP measurements are obtained using ntplib 0.4.0 querying pool.ntp.org servers. The production configuration implements dual-model architecture with inverse variance fusion and retrospective correction via backtracking. Validation methodology makes use of similar external NTP servers for ChronoTick and Chrony (pool.ntp.org), and relies on a separate set of servers (google.ntp.org) to acquire ground truth measurements every minute for comparison~\cite{ntp}. Runs span 1-8 hours collecting thousands of samples. For synchronized platform experiments, we compare against chrony 4.0-4.5~\cite{ntp_performance_chrony_ntpd} as the baseline NTP implementation.
+
+\textbf{Sensors.} ChronoTick monitors hardware sensor streams via Linux hwmon, procfs, and sysfs interfaces: CPU core and package temperatures, operating frequencies, idle state (C-state) residency, memory pressure, I/O throughput, and system load. The exact sensor set varies by platform and privilege level (67--138 features across our testbed machines). Sensor readings are sampled alongside each NTP measurement and provided as multivariate input channels to the foundation models. On the Workstation platform (Windows), equivalent readings are obtained through platform-specific monitoring interfaces.
+
+\textbf{Hardware.} Experiments utilize three distinct platforms representing diverse deployment scenarios:
+
+\textbf{Workstation:} Consumer workstation running Windows with AMD Ryzen 5 3600, 16GB DDR4 RAM, and AMD Radeon 6950XT GPU.
+
+\textbf{Cloud Media Server:} Dedicated server running Debian with Intel Core i7-6700 and 16GB DDR4 RAM.
+
+\textbf{HPC Cluster:} Compute nodes running Ubuntu with dual Intel Xeon Silver 4114 processors and 46GB DDR4 RAM per node. Network connectivity through centralized proxy infrastructure.
+
+\subsection{Foundation Model Benchmarking}
+
+\begin{figure*}[h!]
+    \centering
+    \begin{subfigure}[b]{0.22\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, trim=0 0 120 12, clip]{figures/MAE/unsy_cpu_short.png}
+        \caption{Short Window CPU}
+        \label{subfig:cpu_short}
+    \end{subfigure}%
+    \begin{subfigure}[b]{0.22\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, trim=0 0 120 13, clip]{figures/MAE/unsy_cpu_long.png}
+        \caption{Long Window CPU}
+        \label{subfig:cpu_long}
+    \end{subfigure}%
+    \begin{subfigure}[b]{0.22\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, trim=0 0 120 23, clip]{figures/MAE/unsy_gpu_short.png}
+        \caption{Short Window GPU}
+        \label{subfig:gpu_short}
+    \end{subfigure}%
+    \begin{subfigure}[b]{0.30\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, trim=0 0 10 24, clip]{figures/MAE/unsy_gpu_long.png}
+        \caption{Long Window GPU}
+        \label{subfig:gpu_long}
+    \end{subfigure}
+    \caption{Foundation model MAE comparison for clock drift prediction across hardware platforms and prediction horizons. Data collected on Chameleon Cloud testbed over 24 hours.}
+    \label{fig:mae-comparison}
+\end{figure*}
+
+To validate foundation model feasibility for drift prediction, we benchmarked selected models on 24-hour data collected from the Chameleon Cloud testbed~\cite{chamelon_citation}. Figure~\ref{fig:mae-comparison} compares models across short-window (5s, 10s) and long-window (20s, 40s, 60s) horizons on both CPU and GPU. For each model, we compute and average the median absolute error and execution time across 25 randomly selected but consistent samples, evaluating eight context window lengths ranging from 10s to 5 minutes.
+
+The Chronos family consistently achieves the lowest MAEs for short horizons, with Chronos-mini delivering optimal accuracy (MAE of $1.22\times10^{-5}$) and speed (0.0168\,s GPU). TimesFM exhibits higher error ($6.39\times10^{-4}$) but provides native quantile outputs critical for uncertainty quantification. For long horizons, Chronos-Base achieves the lowest MAE of $1.55\times10^{-5}$, followed by Chronos-Small ($1.92\times10^{-5}$) and Chronos-Mini ($2.14\times10^{-5}$). We selected TimesFM as ChronoTick's primary engine for its native quantile capability and production-grade performance, recognizing that probabilistic outputs are essential for uncertainty quantification, a capability that polynomial approaches~\cite{graham_nsdi22} do not provide.
+
+\subsection{Component Ablation Study}
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{figures/2_mae_grouped.pdf}
+    \caption{Comprehensive ablation study comparing alternative architectural choices across four design dimensions: model architecture, retrospective correction algorithms, drift rate estimation methods, and baseline smoothing.}
+    \label{fig:design_comparison}
+\end{figure*}
+
+Before comparing ChronoTick against external baselines, we validate our architectural design choices through systematic ablation. We systematically disable or replace individual components to quantify their contributions to prediction accuracy, establishing the optimal configuration for production deployment. Each configuration runs for 1 hour on the Workstation platform, with mean absolute error between predicted and true clock offsets serving as the primary accuracy metric.
+
+Figure~\ref{fig:design_comparison} compares alternative architectural choices across four design dimensions: model architecture (single minutes-horizon model, single hours-horizon model, or dual-model fusion), retrospective correction algorithms (none, linear interpolation, proportional adjustment, or backtracking), drift rate estimation methods (consecutive measurement differencing versus windowed linear regression over recent predictions), and baseline smoothing (exponential moving average filtering versus no smoothing).
+
+The production configuration (dual-model architecture with backtracking retrospective correction, windowed drift rate estimation, and baseline smoothing) achieves 0.604 ms MAE, establishing this as the optimal configuration. Single-model architectures demonstrate fundamental limitations: the minutes-horizon model alone reaches 1.625 ms MAE (2.7$\times$ worse than production), while the hours-horizon model alone achieves 1.030 ms MAE (1.7$\times$ worse), validating the dual-model fusion design for combining immediate responsiveness with long-range forecasting capability.
+
+Among dual-model variants, retrospective correction algorithms show substantial impact. Backtracking correction (0.604 ms) outperforms proportional adjustment (1.048 ms, 1.7$\times$ worse), linear interpolation (1.271 ms, 2.1$\times$ worse), and no correction (1.296 ms, 2.1$\times$ worse). The windowed drift rate estimation method reduces error from 1.117 ms to 0.604 ms (1.8$\times$ improvement). Baseline smoothing through exponential moving average filtering provides additional refinement, reducing error from 1.157 ms to 0.604 ms (1.9$\times$ improvement).
+
+\subsection{Multivariate Sensor Contribution}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{figures/sensor_shap_heatmap.png}
+    \caption{SHAP feature importance across sensor categories and hardware platforms for clock drift prediction, computed over 24 hours of continuous data collection. Non-temperature categories contribute 82--85\% of total importance across all machines.}
+    \label{fig:sensor_shap}
+\end{figure}
+
+To isolate individual sensor contributions, we collect 24 hours of continuous sensor and clock drift data from four machines (two commodity, two HPC; idle and stressed conditions), train gradient boosted regression models on clock drift rate using categorized sensor streams, and apply SHAP analysis~\cite{shap_nips2017} to quantify each category's importance. Figure~\ref{fig:sensor_shap} shows that non-temperature sensor categories dominate prediction importance on every machine, contributing 82--85\% of total SHAP importance. Full multivariate models achieve $R^2$ = 0.67--0.94 versus 0.47--0.78 for temperature-only models, confirming that temperature alone is insufficient for accurate drift prediction.
+
+The dominant non-temperature category varies by hardware and workload: memory pressure on idle systems (34--46\%), CPU frequency under stress (42--59\%), with no single sensor category universally optimal. This hardware-dependent variation validates the multivariate architecture that integrates diverse hardware monitoring streams rather than relying on temperature alone.
+
+\subsection{Client Access Performance}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.95\linewidth, trim=0 0 0 23, clip]{figures/1_access_performance.pdf}
+    \caption{Performance comparison of ChronoTick's lock-free shared memory IPC architecture against direct NTP queries and native system clock access.}
+    \label{fig:access_performance}
+\end{figure}
+
+The lock-free IPC shared memory architecture enables microsecond-level client access latency, validating practical deployment viability for latency-sensitive applications. As shown in Figure~\ref{fig:access_performance}, single-client access completes in 2.00 $\mu$s (orders of magnitude faster than direct NTP queries at 42.93 ms) while approaching native system clock access (0.11 $\mu$s). Concurrent access scales linearly from 2.00 $\mu$s (1 client) to 5.50 $\mu$s (8 clients), demonstrating the architecture supports parallel queries without contention or performance degradation.
+
+\subsection{Defensive Mechanisms}
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{figures/5a_external_defense.pdf}
+    \caption{External defense: outlier detection in HPC cluster environment with naturally occurring anomalies from proxy architecture.}
+    \label{fig:external_defense}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{figures/5b_internal_defense.pdf}
+    \caption{Internal defense: resilience under system clock chaos from conflicting dual synchronizers running simultaneously.}
+    \label{fig:internal_defense}
+\end{figure}
+
+ChronoTick defends against two threat vectors: external corruption of input measurements and internal unreliability of model predictions. We evaluate external defense within the HPC cluster, which exhibits naturally occurring outliers from its proxy architecture where all nodes access external NTP servers through centralized gateway nodes. ChronoTick employs modified z-score outlier detection (threshold 3.0) to identify and filter anomalous measurements. For internal defense, we evaluate the Workstation under induced system clock chaos from conflicting dual synchronizers (Hyper-V TimeSync and Chrony) running simultaneously for 2 hours, creating erratic training signals that emulate scenarios where model predictions become unreliable.
+
+Figure~\ref{fig:external_defense} shows ChronoTick detecting 34 outliers (14.3\% of samples, 420 ms maximum magnitude). With outlier filtering enabled, ChronoTick achieves 1.030 ms MAE and 1.449 ms RMSE. Without filtering (right, hypothetical), performance degrades to 3.903 ms MAE and 27.671 ms RMSE; a 74\% MAE improvement from defensive filtering.
+
+Figure~\ref{fig:internal_defense} demonstrates Workstation resilience under adversarial conditions. During the 2-hour adversarial period (red shaded), system clock chaos exhibits 332 ms mean error and 231 ms standard deviation (ranging 50-820 ms). ChronoTick maintains 221 ms MAE despite erratic training signals from the conflicting synchronizers. After disabling the adversarial system (purple dashed line), the system requires approximately 2 hours to fully restore accuracy (green shaded recovery period) as retrospective correction gradually rebuilds clean historical context from valid NTP measurements, demonstrating the mechanism's self-healing capability.
+
+These results validate multi-layer defensive mechanisms that maintain temporal consistency despite hostile conditions.
+
+\subsection{Holdover Performance}
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth, trim=0 0 0 23, clip]{figures/exp13_homelab_unsync.pdf}
+    \caption{Validation of ChronoTick's predictive capability on unsynchronized Cloud Media Server exhibiting natural clock drift by transitioning from 8-hour unsynchronized operation to synchronized deployment with system NTP disabled.}
+    \label{fig:unsync_test}
+\end{figure}
+
+Before evaluating sustained synchronized deployments, we validate ChronoTick's predictive capability on a clock exhibiting natural drift by transitioning from unsynchronized to synchronized operation. This experiment demonstrates the system's ability to track clock behavior and provide bounded error even without valid external synchronization, a fundamental requirement for reducing synchronization frequency in resource-constrained environments.
+
+Figure~\ref{fig:unsync_test} presents an 8-hour unsynchronized deployment on the Cloud Media Server with system NTP disabled. The system clock diverges at -7.877 ms/hour (a natural drift rate typical of commodity hardware), and ChronoTick maintains 16.022 ms MAE throughout the experiment, demonstrating that foundation models can extract sufficient temporal structure for bounded predictions without requiring well-behaved synchronized clocks. This critical holdover scenario validates drift prediction on free-running oscillators.
+
+
+\subsection{Sustained Production Deployments}
+
+
+\begin{figure*}[!t]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, trim=0 0 0 20, clip]{figures/longterm_node1_offset.pdf}
+        \caption{Node 1 offset behavior}
+        \label{subfig:longterm_node1_offset}
+    \end{subfigure}%
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, trim=0 0 0 20, clip]{figures/longterm_node1_cumulative.pdf}
+        \caption{Node 1 cumulative error}
+        \label{subfig:longterm_node1_cum}
+    \end{subfigure}\\[-0.5em]
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, trim=0 0 0 20, clip]{figures/longterm_node2_offset.pdf}
+        \caption{Node 2 offset behavior}
+        \label{subfig:longterm_node2_offset}
+    \end{subfigure}%
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth, trim=0 0 0 20, clip]{figures/longterm_node2_cumulative.pdf}
+        \caption{Node 2 cumulative error}
+        \label{subfig:longterm_node2_cum}
+    \end{subfigure}
+    \caption{Sustained 8-hour production deployments on HPC cluster nodes: offset behavior and cumulative error against chrony for both Node 1 and Node 2.}
+    \label{fig:longterm_sustained}
+\end{figure*}
+
+Having validated incremental design decisions, defensive mechanisms, and unsynchronized performance, we now evaluate end-to-end production capability through sustained 8-hour deployments on synchronized systems. These experiments demonstrate ChronoTick's ability to supersample clock behavior: using sparse NTP measurements combined with foundation model predictions to achieve sub-millisecond precision between synchronization points.
+
+Figure~\ref{fig:longterm_sustained} presents results from two HPC cluster compute nodes over 8-hour continuous deployments. Both nodes maintain synchronized clocks via chrony while ChronoTick provides predictive corrections between NTP measurements (arriving every minute). Node 1 achieves 0.91 ms MAE while Node 2 achieves 0.49 ms MAE, demonstrating sub-millisecond precision through the dual-model architecture combining minutes-horizon and hours-horizon forecasting.
+
+The cumulative error plots show bounded error accumulation throughout 8-hour deployments and report chrony's system clock MAE alongside ChronoTick's: Node 1 achieves 0.91 ms versus chrony's 2.18 ms (2.4$\times$ improvement), while Node 2 achieves 0.49 ms versus chrony's 1.60 ms (3.3$\times$ improvement). Across both nodes, the system successfully bounds 94.9\% of all predictions within stated confidence intervals through per-prediction uncertainty quantification, approaching TrueTime-style probabilistic guarantees for distributed temporal reasoning.
+
+These sustained deployments validate the complete system: zero-shot foundation models generalize across heterogeneous platforms without per-device calibration, retrospective correction sustains sub-millisecond accuracy through continuous refinement, and multivariate sensor integration provides environmental context enabling adaptive prediction.

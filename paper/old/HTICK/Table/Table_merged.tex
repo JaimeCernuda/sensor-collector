@@ -1,0 +1,93 @@
+% SeqFusion: (\href{https://arxiv.org/pdf/2503.02836v1}{Huang et al.,2025})
+% ExplotingLPTS (\href{https://openreview.net/pdf?id=dFapOK8Rhb}{Huang et al.,2025})
+% MPTS (\href{https://arxiv.org/pdf/2501.06386}{Wolff et al.,2025})
+% TimeCAP (\href{https://arxiv.org/pdf/2502.11418}{Lee et al.,2025}) 
+% TimePFN (\href{https://arxiv.org/pdf/2502.16294v1}{Taga et al.,2025}) 
+% AdaPTS (\href{https://arxiv.org/pdf/2502.10235v1}{Benechehab et al.,2025})
+% Time-MoE (\href{https://arxiv.org/pdf/2409.16040}{Shi et al.,2025}) 
+% ReFocus (\href{https://arxiv.org/pdf/2502.16890v1}{Yu et al.,2025})
+% SmallButMighty (\href{https://arxiv.org/pdf/2503.03594}{Fan et al.,2025})
+% Time-MMD (\href{https://arxiv.org/pdf/2406.08627}{Liu et al.,2025})
+% PPDformer (\href{https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=10890581}{Wan et al.,2025})
+% UnifyAndAnchor (\href{https://arxiv.org/pdf/2503.01157}{Hong et al.,2025})
+% LAST SToP (\href{https://arxiv.org/pdf/2502.01922}{Gupta et al.,2025})
+% TIME-LLM (\href{https://arxiv.org/pdf/2310.01728}{Jin et al.,2024})
+% TimesFM (\href{https://arxiv.org/pdf/2310.10688}{Das et al.,2024}) 
+% Time-FFM (\href{https://arxiv.org/pdf/2405.14252}{Liu et al.,2024})
+% AutoTimes (\href{https://arxiv.org/pdf/2402.02370}{Yong Liu et al.,2024})
+% TTMs(\href{https://proceedings.neurips.cc/paper_files/paper/2024/file/874a4d89f2d04b4bcf9a2c19545cf040-Paper-Conference.pdf}{Ekambaram et al.,2024}) 
+% MOMENT (\href{https://arxiv.org/pdf/2402.03885v2}{Goswami et al.,2024})
+% Chronos (\href{https://arxiv.org/pdf/2403.07815}{Ansari et al.,2024}) 
+% TimeGPT-1 (\href{https://arxiv.org/pdf/2310.03589}{Garza et al.,2024})
+% TimeCMA (\href{https://arxiv.org/pdf/2406.01638}{Chenxi Liu et al.,2024})
+% TEMPO (\href{https://arxiv.org/pdf/2310.04948}{Cao et al.,2024})
+% S2IP-LLM (\href{https://arxiv.org/pdf/2403.05798}{Pan et al.,2024}) 
+% LEMOLE (\href{https://arxiv.org/pdf/2412.00053}{Zhang et al.,2024}) 
+% TIMERAG (\href{https://arxiv.org/pdf/2412.16643}{Yang et al.,2024})
+% MSGNet (\href{https://ojs.aaai.org/index.php/AAAI/article/view/28991}{Cai et al.,2024}) 
+% MOIRAI (\href{https://ink.library.smu.edu.sg/cgi/viewcontent.cgi?article=10906&context=sis_research}{Woo et al.,2024}) 
+% TimeXer (\href{https://openreview.net/pdf?id=INAeUQ04lT}{Wang et al.,2024})
+% SOFTS(\href{https://proceedings.neurips.cc/paper_files/paper/2024/file/754612bde73a8b65ad8743f1f6d8ddf6-Paper-Conference.pdf}{Han et al.,2024}) 
+% ChatTime (\href{https://arxiv.org/pdf/2412.11376}{Wang et al,2024})
+% GPT4MTS (\href{https://ojs.aaai.org/index.php/AAAI/article/view/30383}{Jia et al.,2024}) 
+% LLM-Mixer (\href{https://arxiv.org/pdf/2410.11674}{Kowsher et al.,2024}) 
+% PatchTST (\href{https://arxiv.org/pdf/2211.14730}{Nie et al.,2023}) 
+% Crossformer (\href{https://openreview.net/forum?id=vSVLM2j9eie}{Zhang et al.,2023}) 
+
+%------------- Table 1: Basic LLM Features -------------%
+
+
+\begin{table*}[htbp]
+\centering
+\caption{Survey of Next-Generation Time Series Forcasting Models}
+\resizebox{\textwidth}{!}{\begin{tabular}{|l|c|cccc|ccc|c|}
+\toprule
+\multicolumn{1}{|c|}{\textbf{}} & \multicolumn{1}{|c|}{\textbf{Model Size}}  & \multicolumn{4}{|c|}{\textbf{Types of LLMs}} & \multicolumn{3}{|c|}{\textbf{Training Format}} & \multicolumn{1}{|c|}{\textbf{Output}} \\
+
+\cmidrule(lr){2-2} \cmidrule(lr){3-6} \cmidrule(lr){7-9} \cmidrule(lr){10-10}
+\multicolumn{1}{|c|}{Name} & S/M/L & Repro LLM  & Decoder only & Transformer & No LLM & Zero Shot  & Few Shot & Supervised & Point vs Stat \\
+\midrule
+SeqFusion~\cite{SeqFusion}           & Medium				 	& \xmark & \xmark & \xmark & \cmark & \cmark & \xmark & \xmark & Point \\
+ExplotingLPTS~\cite{ExplotingLPTS}   & Large	 				& \cmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & Point \\
+MPTS~\cite{MPTS}                     & Large	 				& \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark & Point \\
+TimeCAP~\cite{TimeCAP}               & Large	 				& \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & Neither \\
+TimePFN~\cite{TimePFN}               & Medium 					& \xmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & Point \\
+AdaPTS~\cite{AdaPTS}                 & Medium 					& \cmark & \xmark & \xmark & \xmark & \cmark & \cmark & \xmark & Both \\
+Time-MoE~\cite{Time-MoE}             & Large	 				& \xmark & \cmark & \cmark & \xmark & \cmark & \xmark & \cmark & Both \\
+ReFocus~\cite{ReFocus}               & Medium 					& \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & Point \\
+SmallButMighty~\cite{SmallButMighty} & Small 					& \xmark & \cmark & \xmark & \xmark & \xmark & \xmark & \cmark & Point \\
+Time-MMD~\cite{Time-MMD}             & Large	 				& \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & Point \\
+PPDformer~\cite{PPDformer}           & Medium 					& \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & Point \\
+UnifyAndAnchor~\cite{UnifyAndAnchor} & Large	 				& \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & Point \\
+LAST SToP~\cite{LAST_SToP}           & Medium 					& \cmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & Point \\
+TIME-LLM~\cite{TIME-LLM}             & Large	 				& \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & Both \\
+TimesFM~\cite{TimesFM}               & Medium 					& \xmark & \cmark & \cmark & \xmark & \xmark & \cmark & \xmark & Both \\
+Time-FFM~\cite{Time-FFM}             & Medium 					& \cmark & \xmark & \cmark & \xmark & \cmark & \cmark & \xmark & Both \\
+AutoTimes~\cite{AutoTimes}           & Large	 				& \cmark & \cmark & \cmark & \xmark & \cmark & \xmark & \xmark & Both \\
+TTMs~\cite{TTMs}                     & Small 					& \xmark & \xmark & \xmark & \cmark & \cmark & \cmark & \xmark & Point \\
+MOMENT~\cite{MOMENT}                 & Medium 				 	& \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & Point \\
+Chronos~\cite{Chronos}               & All 						& \xmark & \xmark & \cmark & \cmark & \cmark & \xmark & \xmark & Point \\
+TimeGPT-1~\cite{TimeGPT-1}           & Large	 				& \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \xmark & Neither \\
+TimeCMA~\cite{TimeCMA}               & Medium 					& \cmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & Point \\
+TEMPO~\cite{TEMPO}                   & Large	 				& \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \xmark & Point \\
+$\textbf{S}^2$IP-LLM~\cite{S^2IP-LLM}             & Large	 				& \cmark & \xmark & \cmark & \xmark & \cmark & \xmark & \xmark & Point \\
+LeMoLE~\cite{LEMOLE}                 & Medium 					& \xmark & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & Point \\
+TimeRAG~\cite{TimeRAG}               & Medium 					& \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & Probabilistic \\
+MSGNet~\cite{MSGNet}                 & Medium 					& \xmark & \xmark & \xmark & \cmark & \xmark & \xmark & \cmark & Probabilistic \\
+MOIRAI~\cite{MOIRAI}                 & All					 	& \xmark & \xmark & \cmark & \cmark & \cmark & \xmark & \xmark & Both \\
+TimeXer~\cite{TimeXer}               & Large	 				& \xmark & \xmark & \cmark & \xmark & \cmark & \xmark & \xmark & Both \\
+SOFTS~\cite{SOFTS}                   & Small				    & \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & Both \\
+ChatTime~\cite{ChatTime}             & Medium 					& \cmark & \xmark & \xmark & \xmark & \xmark & \xmark & \cmark & Point \\
+GPT4MTS~\cite{GPT4MTS}               & Large	 				& \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & Probabilistic \\
+LLM-Mixer~\cite{LLM-Mixer}           & Large	 				& \xmark & \xmark & \cmark & \xmark & \xmark & \xmark & \cmark & Probabilistic \\
+PatchTST~\cite{PatchTST}             & Medium 					& \xmark & \xmark & \cmark & \cmark & \xmark & \xmark & \cmark & Point \\
+Crossformer~\cite{Crossformer}       & Large	 				& \xmark & \xmark & \cmark & \cmark & \xmark & \xmark & \cmark & Point \\
+\bottomrule
+\end{tabular}
+}
+
+\label{tab:llm_features_1}
+\end{table*}
+
+
+

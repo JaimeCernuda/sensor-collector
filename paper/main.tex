@@ -1,0 +1,71 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{subcaption}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{pifont}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+    citecolor=blue
+}
+
+% Table markers
+\newcommand{\cmark}{\cellcolor{green!20}{\ding{51}}}
+\newcommand{\xmark}{\cellcolor{red!20}{\ding{55}}}
+\newcommand{\nmark}{\cellcolor{yellow!30}N/A}
+
+\begin{document}
+
+\title{ChronoTick: Software-Defined Oscillator Compensation via Foundation Model Drift Prediction}
+
+\author{
+\IEEEauthorblockN{Jaime Cernuda}
+\IEEEauthorblockA{\textit{Department of Computer Science} \\
+\textit{Illinois Institute of Technology}\\
+Chicago, IL, USA \\
+jcernudagarcia@illinoistech.edu}
+\and
+\IEEEauthorblockN{Anthony Kougkas}
+\IEEEauthorblockA{\textit{Department of Computer Science} \\
+\textit{Illinois Institute of Technology}\\
+Chicago, IL, USA \\
+akougkas@illinoistech.edu}
+\and
+\IEEEauthorblockN{Xian-He Sun}
+\IEEEauthorblockA{\textit{Department of Computer Science} \\
+\textit{Illinois Institute of Technology}\\
+Chicago, IL, USA \\
+sun@illinoistech.edu}
+}
+
+\maketitle
+
+\begin{abstract}
+Commodity servers require accurate clocks for distributed applications such as databases, tracing systems, and observability pipelines, yet most deployments lack specialized timing infrastructure such as PTP-capable switches or GPS receivers. Network Time Protocol periodically corrects clock offset, but oscillator drift accumulates between synchronization events. Existing software compensation approaches require per-device calibration, rely on single sensors, and provide no uncertainty quantification. We present ChronoTick, a system that applies zero-shot time series foundation models to multivariate oscillator drift prediction on commodity hardware. Pre-trained models eliminate per-device calibration, enabling immediate deployment. Retrospective correction refines predictions as ground truth from synchronization events becomes available, enabling continuous adaptation to changing thermal and workload conditions. Integration of diverse hardware monitoring streams (temperatures, CPU frequency, memory pressure, idle states, I/O) captures joint dynamics that single-sensor approaches miss. Across heterogeneous platforms, ChronoTick achieves sub-millisecond accuracy (0.49--0.91\,ms mean absolute error), 2.4--3.3$\times$ improvement over commodity NTP, and 94.9\% uncertainty coverage. ChronoTick is released as open source.
+\end{abstract}
+
+\begin{IEEEkeywords}
+oscillator drift prediction, clock compensation, time series foundation models, NTP, bounded uncertainty
+\end{IEEEkeywords}
+
+\input{sections/1.a.introduction}
+\input{sections/2.related-work}
+\input{sections/3.design}
+\input{sections/4.evaluations}
+\input{sections/5.conclusions}
+
+\bibliographystyle{IEEEtran}
+\bibliography{chronotick}
+
+\end{document}

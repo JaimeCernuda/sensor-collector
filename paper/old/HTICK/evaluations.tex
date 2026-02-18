@@ -1,0 +1,150 @@
+
+\Section{Validation Across Workstation, Cloud, and HPC Systems}
+
+We evaluate HTick through two complementary phases. First, we validate our architectural design choices through component ablation studies, systematically disabling individual features to quantify their contributions to prediction accuracy. This internal validation establishes the optimal system configuration—dual-model architecture with retrospective correction.
+
+We evaluate HTick through two complementary phases. First, we validate our architectural design choices through component ablation studies, systematically disabling individual features to quantify their contributions to prediction accuracy. This internal validation establishes the optimal system configuration: dual-model architecture with retrospective correction achieving 0.604 ms mean absolute error (MAE), representing 2.7$\times$ improvement over single-model alternatives.
+
+Second, we demonstrate production performance across real-world scenarios: microsecond-scale client access latency validates deployment viability, defensive mechanisms maintain accuracy under measurement anomalies (outlier detection improving MAE by 74\%), unsynchronized clock experiments demonstrate bounded predictions even with natural drift rates reaching -7.877 ms/hour, and sustained 10+ hour deployments achieve 94.9\% uncertainty bound coverage (meaning predictions fall within stated confidence intervals 94.9\% of the time), meeting TrueTime-equivalent probabilistic guarantees while maintaining 2.5-3$\times$ better temporal consistency than commodity NTP implementations.
+
+Experiments span three diverse platforms demonstrating broad applicability: consumer workstations running Windows, cloud servers running Debian, and HPC cluster nodes running Ubuntu. Platform diversity validates zero-shot generalization capability across varying hardware configurations, operating systems, and network characteristics without requiring per-device training or calibration.
+
+\Subsection{Experimental Setup}
+
+
+\textbf{Software.} All evaluations employ TimesFM foundation models (v2.5-200m) for temporal prediction. The system uses Python 3.9-3.12 across platforms with pytorch 2.1.0, timesfm 1.0.0, and numpy 1.24.0. NTP measurements are obtained using ntplib 0.4.0 querying pool.ntp.org servers. The production configuration implements dual-model architecture with inverse variance fusion and retrospective correction via backtracking. Validation methodology measures makes use of similar external NTP servers for HTick and Chrony (pool.ntp.org), and relies on a separate set of servers (google.ntp.org) to acquire ground truth measurements every minute for comparison. Runs spann 1-8 hours collecting thousands of samples. For synchronized platform experiments, we compare against chrony 4.0-4.5 as the baseline NTP implementation.
+
+\textbf{Hardware.} Experiments utilize three distinct platforms representing diverse deployment scenarios:
+
+\textbf{Workstation:} Consumer workstation running Windows with AMD Ryzen 5 3600, 16GB DDR4 RAM, and AMD Radeon 6950XT GPU.
+
+\textbf{Cloud Media Server:} Dedicated server running Debian with Intel Core i7-6700 and 16GB DDR4 RAM.
+
+\textbf{HPC Cluster:} Compute nodes running Ubuntu with dual Intel Xeon Silver 4114 processors and 46GB DDR4 RAM per node. Network connectivity through centralized proxy infrastructure.
+
+\Subsection{Client Access Performance}
+
+The lock-free IPC shared memory architecture enables microsecond-level client access latency, validating practical deployment viability for latency-sensitive applications. As shown in Figure~\ref{fig:access_performance}, single-client access completes in 2.00 $\mu$s (orders of magnitude faster than direct NTP queries at 42.93 ms) while approaching native system clock access (0.11 $\mu$s). Concurrent access scales linearly from 2.00 $\mu$s (1 client) to 5.50 $\mu$s (8 clients), demonstrating the architecture supports parallel queries without contention or performance degradation.
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.95\linewidth, trim=0 0 0 23, clip]{ChronoTick/sections/figures/1_access_performance.pdf}
+    \caption{Performance comparison of HTick's lock-free shared memory IPC architecture against direct NTP queries and native system clock access.}
+    \label{fig:access_performance}
+\end{figure}
+
+\Subsection{Component Ablation Study}
+
+Before comparing HTick against external baselines like NTP, we validate our architectural design choices through systematic ablation studies. We systematically disable or replace individual components to quantify their contributions to prediction accuracy, establishing the optimal configuration for production deployment. This internal validation helps justify design decisions by comparing alternative architectural choices against each other using the same test workload. Each configuration runs for 1 hour on the Workstation platform, with mean absolute error (MAE) between predicted and true clock offsets serving as the primary accuracy metric.
+
+\begin{figure*}[!t]
+    \centering
+    \includegraphics[width=\textwidth]{ChronoTick/sections/figures/2_mae_grouped.pdf}
+    \caption{Comprehensive ablation study comparing alternative architectural choices across four design dimensions: model architecture, retrospective correction algorithms, drift rate estimation methods, and baseline smoothing.}
+    \label{fig:design_comparison}
+\end{figure*}
+
+Figure~\ref{fig:design_comparison} compares alternative architectural choices across four design dimensions: model architecture (single minutes-horizon model, single hours-horizon model, or dual-model fusion), retrospective correction algorithms (none, linear interpolation, proportional adjustment, or backtracking), drift rate estimation methods (consecutive measurement differencing versus windowed linear regression over recent predictions), and baseline smoothing (exponential moving average filtering versus no smoothing).
+
+The production configuration (dual-model architecture with backtracking retrospective correction, windowed drift rate estimation, and baseline smoothing) achieves 0.604 ms MAE, establishing this as the optimal configuration against internal baselines. Single-model architectures demonstrate fundamental limitations: the minutes-horizon model alone reaches 1.625 ms MAE (2.7$\times$ worse than production), while the hours-horizon model alone achieves 1.030 ms MAE (1.7$\times$ worse), validating the dual-model fusion design for combining immediate responsiveness with long-range forecasting capability.
+
+Among dual-model variants, retrospective correction algorithms show substantial impact on accuracy. Backtracking correction (0.604 ms) outperforms proportional adjustment (1.048 ms, 1.7$\times$ worse), linear interpolation (1.271 ms, 2.1$\times$ worse), and no correction (1.296 ms, 2.1$\times$ worse). The windowed drift rate estimation method (which computes drift rates via linear regression over recent prediction windows rather than consecutive measurement differencing) reduces error from 1.117 ms to 0.604 ms (1.8$\times$ improvement). Baseline smoothing through exponential moving average filtering provides additional refinement, reducing error from 1.157 ms to 0.604 ms (1.9$\times$ improvement).
+
+This production configuration also achieves 94.9\% uncertainty bound coverage across sustained deployments (detailed in Section 5.5), meaning predictions fall within stated confidence intervals 94.9\% of the time. The ablation study validates that our architectural choices improve both point prediction accuracy and uncertainty quantification quality compared to simpler alternatives.
+
+
+\Subsection{Defensive Mechanisms}
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{ChronoTick/sections/figures/5a_external_defense.pdf}
+    \caption{Evaluation of HTick's external defensive mechanisms protecting against corrupted NTP measurements in the HPC cluster environment exhibiting naturally occurring outliers from proxy architecture.}
+    \label{fig:external_defense}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth]{ChronoTick/sections/figures/5b_internal_defense.pdf}
+    \caption{Evaluation of HTick's internal defensive mechanisms under adversarial system clock chaos induced by conflicting dual synchronizers running simultaneously.}
+    \label{fig:internal_defense}
+\end{figure}
+
+HTick defends against two threat vectors: external corruption of input measurements and internal unreliability of model predictions. We evaluate external defense within the HPC cluster, which exhibits naturally occurring outliers from its proxy architecture where all nodes access external NTP servers through centralized gateway nodes. HTick employs modified z-score outlier detection (threshold 3.0) to identify and filter anomalous measurements. For internal defense, we evaluate the Workstation under induced system clock chaos from conflicting dual synchronizers (Hyper-V TimeSync and Chrony) running simultaneously for 2 hours, creating erratic training signals that emulate scenarios where model predictions become unreliable.
+
+Figure~\ref{fig:external_defense} shows HTick detecting 34 outliers (14.3\% of samples, 420 ms maximum magnitude). With outlier filtering enabled, HTick achieves 1.030 ms MAE and 1.449 ms RMSE. Without filtering (right, hypothetical), performance degrades to 3.903 ms MAE and 27.671 ms RMSE; a 74\% MAE improvement from defensive filtering.
+
+Figure~\ref{fig:internal_defense} demonstrates Workstation resilience under adversarial conditions. During the 2-hour adversarial period (red shaded), system clock chaos exhibits 332 ms mean error and 231 ms standard deviation (ranging 50-820 ms). HTick maintains 221 ms MAE despite erratic training signals from the conflicting synchronizers. After disabling the adversarial system (purple dashed line), the system requires approximately 2 hours to fully restore accuracy (green shaded recovery period) as retrospective correction gradually rebuilds clean historical context from valid NTP measurements, demonstrating the mechanism's self-healing capability.
+
+These results validate that multi-layer validation successfully filters anomalous measurements while uncertainty quantification and retrospective correction enable adaptation when measurement quality improves or degrades, transforming HTick into a production-hardened service maintaining temporal consistency despite hostile conditions.
+
+
+\Subsection{Performance under High Drift Rates}
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\linewidth, trim=0 0 0 23, clip]{ChronoTick/sections/figures/exp13_homelab_unsync.pdf}
+    \caption{Validation of HTick's predictive capability on unsynchronized Cloud Media Server exhibiting natural clock drift by transitioning from 8-hour unsynchronized operation to synchronized deployment with system NTP disabled.}
+    \label{fig:unsync_test}
+\end{figure}
+
+Before evaluating sustained synchronized deployments, we validate HTick's predictive capability on a clock exhibiting natural drift by transitioning from unsynchronized to synchronized operation. This experiment demonstrates the system's ability to track clock behavior and provide bounded error even without valid external synchronization—a fundamental requirement for reducing synchronization frequency in resource-constrained environments.
+
+Figure~\ref{fig:unsync_test} presents an 8-hour unsynchronized deployment on the Cloud Media Server with system NTP disabled. The system clock diverges at -7.877 ms/hour (a natural drift rate typical of commodity hardware), and HTick maintains 16.022 ms MAE throughout the experiment, demonstrating that foundation models can extract sufficient temporal structure for bounded predictions without requiring well-behaved synchronized clocks.
+
+
+\Subsection{Sustained Production Deployments}
+
+
+\begin{figure*}[!t]
+    \centering
+    \subfigure[Node 1 offset behavior (ares-comp11-fix1)]{
+        \includegraphics[width=0.95\textwidth]{ChronoTick/sections/figures/longterm_node1_offset.pdf}
+        \label{subfig:longterm_node1_offset}
+    }
+
+    \vspace{0.5em}
+
+    \subfigure[Node 1 cumulative error]{
+        \includegraphics[width=0.48\textwidth]{ChronoTick/sections/figures/longterm_node1_cumulative.pdf}
+        \label{subfig:longterm_node1_cum}
+    }%
+    \hfill
+    \subfigure[Node 1 coverage analysis]{
+        \includegraphics[width=0.48\textwidth]{ChronoTick/sections/figures/coverage_chronotick.png}
+        \label{subfig:longterm_node1_coverage}
+    }
+    \caption{Sustained 10-hour production deployment results on HPC cluster Node 1 demonstrating end-to-end HTick capability against chrony.}
+    \label{fig:longterm_node1}
+\end{figure*}
+
+\begin{figure*}[!t]
+    \centering
+    \subfigure[Node 2 offset behavior (ares-comp12-fix1)]{
+        \includegraphics[width=0.95\textwidth]{ChronoTick/sections/figures/longterm_node2_offset.pdf}
+        \label{subfig:longterm_node2_offset}
+    }
+
+    \vspace{0.5em}
+
+    \subfigure[Node 2 cumulative error]{
+        \includegraphics[width=0.48\textwidth]{ChronoTick/sections/figures/longterm_node2_cumulative.pdf}
+        \label{subfig:longterm_node2_cum}
+    }%
+    \hfill
+    \subfigure[Node 2 coverage analysis]{
+        \includegraphics[width=0.48\textwidth]{ChronoTick/sections/figures/longterm_node1_uncertainty_clean.pdf}
+        \label{subfig:longterm_node2_coverage}
+    }
+    \caption{Sustained 10-hour production deployment results on HPC cluster Node 2 demonstrating end-to-end HTick capability against chrony.}
+    \label{fig:longterm_node2}
+\end{figure*}
+
+Having validated incremental design decisions, defensive mechanisms, and unsynchronized performance, we now evaluate end-to-end production capability through sustained 10+ hour deployments on synchronized systems. These experiments demonstrate HTick's ability to supersample clock behavior: using sparse NTP measurements combined with foundation model predictions to achieve sub-millisecond precision between synchronization points.
+
+Figures~\ref{fig:longterm_node1} and~\ref{fig:longterm_node2} present results from two HPC cluster compute nodes over 10-hour continuous deployments. Both nodes maintain synchronized clocks via chrony while HTick provides predictive corrections between NTP measurements (arriving every minute). Node 1 achieves 0.872 ms MAE with 1.568 ms RMSE, while Node 2 achieves 0.604 ms MAE with 0.977 ms RMSE, demonstrating sub-millisecond precision through the dual-model architecture combining minutes-horizon and hours-horizon forecasting.
+
+The cumulative error plots (subfigures b) show bounded error accumulation throughout 10-hour deployments, demonstrating that HTick maintains temporal consistency 2.5-3$\times$ better than commodity NTP implementations. The coverage analysis (subfigures c) validates well-calibrated uncertainty bounds that accurately reflect prediction confidence: the system successfully bounds 94.9\% of all predictions within stated confidence intervals through per-prediction uncertainty quantification. This 94.9\% coverage meets TrueTime-equivalent probabilistic guarantees, enabling distributed algorithms to reason about temporal uncertainty.
+
+These sustained deployments validate the complete system narrative: foundation models trained on diverse temporal data successfully generalize to clock synchronization across heterogeneous platforms without per-device training, achieving bounded sub-millisecond precision with sparse NTP measurements while providing calibrated uncertainty estimates for probabilistic distributed coordination.

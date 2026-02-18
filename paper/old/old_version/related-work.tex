@@ -1,0 +1,25 @@
+\section{Related Work}
+
+\subsection{Clock Compensation}
+
+The most direct prior work is chrony's \texttt{tempcomp} directive~\cite{ntp_performance_chrony_ntpd}, which applies quadratic polynomial compensation from a single \texttt{hwmon} sensor. Measurements by IJS.si demonstrated a 3.54$\times$ improvement in offset standard deviation (6.3\,$\mu$s to 1.78\,$\mu$s), establishing a practical baseline for software-defined compensation on commodity hardware.
+
+Graham~\cite{graham_nsdi22} demonstrated that reading commodity DIMM temperature sensors and fitting cubic polynomials to the temperature-frequency relationship reduces drift by 2000$\times$ (200\,ppm to 100\,ppb). Key findings include that DIMM sensors serve as better crystal proxies than CPU die temperature (lower thermal lag), and that each crystal requires individual calibration due to manufacturing variance in AT-cut angle. However, Graham's approach is limited to a fixed parametric model, requires 48-hour per-device calibration, ignores hysteresis and aging effects, uses only a single sensor, provides no uncertainty bounds, and was never released as open source.
+
+\subsection{ML for Hardware Timing}
+
+Machine learning has been applied to individual timing component prediction. Su et al.~\cite{su_lstm_tcxo_transfer_learning} apply LSTM models to improve TCXO temperature compensation by 51\% through transfer learning across oscillator units. He et al.~\cite{he_bds3_lstm_72pct_arima} demonstrate 72\% improvement over ARIMA for BDS-3 satellite atomic clock prediction using LSTM networks. These works validate that neural approaches capture timing dynamics beyond traditional analytical models, but focus on per-device calibration of individual components rather than end-to-end system clock behavior across heterogeneous hardware.
+
+The Huygens algorithm~\cite{huygens_nsdi2018_geng_svm_nanosec} applies support vector machines to filter network jitter, achieving tens-of-nanoseconds accuracy within datacenters. However, Huygens operates reactively (measuring and correcting current error) rather than predictively, requires PTP-capable NIC hardware timestamps, and was never released as open source. It was commercialized as Clockwork Systems.
+
+\subsection{Foundation Time Series Models}
+
+Time series foundation models (TSFMs) represent a paradigm shift from per-task model training to zero-shot generalization. Chronos~\cite{Chronos} converts time series into discrete tokens using scaling and quantization, achieving strong zero-shot performance through pretraining on diverse datasets. TimesFM~\cite{TimesFM} is a decoder-only foundation model pretrained on 100 billion real-world time points, predicting patches autoregressively for efficient long-horizon forecasting. Moirai~\cite{MOIRAI} addresses time series heterogeneity through multi-patch layers and flexible attention for multivariate inputs. TTMs~\cite{TTMs} is the first pretrained lightweight model explicitly capturing cross-channel dependencies and external covariates.
+
+Critically for clock compensation, these models produce probabilistic forecasts through multi-quantile outputs that directly encode prediction uncertainty---a capability absent from polynomial compensation approaches. The zero-shot property eliminates per-device calibration, and the ability to consume multivariate inputs enables leveraging the full set of available \texttt{hwmon} sensors rather than a single temperature reading.
+
+\subsection{Software-Defined Timing}
+
+AWS ClockBound provides software clock error bounding via chrony integration but relies on static error models without ML prediction. Google's TrueTime~\cite{spanner_osdi2012_truetime_gps_atomic} achieves bounded uncertainty through GPS receivers and atomic clocks---hardware costing \$50,000+ per datacenter. Meta's Simplified PTP (SPTP)~\cite{meta_ptp_time_appliances} reduces PTP complexity but still requires specialized network infrastructure. CockroachDB~\cite{cockroachdb_hlc_implementation} and YugabyteDB~\cite{yugabytedb_hlc_distributed} employ Hybrid Logical Clocks for causal consistency without specialized hardware but sacrifice real-time semantics.
+
+None of these systems provides ML-based drift prediction from multivariate sensor data on commodity hardware. ChronoTick occupies the unoccupied intersection of ML drift prediction, commodity sensors, uncertainty quantification, and open-source availability.
