@@ -14,15 +14,21 @@ from numpy.typing import NDArray
 
 from tick2.models.base import PredictionResult
 
-# Branch naming scheme for granite-timeseries-ttm-r2:
-# {context_length}-{prediction_length}[-ft][-mae]-r2[.1]
-DEFAULT_BRANCHES: dict[tuple[int, int], str] = {
-    (512, 96): "512-96-r2",
+# Zero-shot branches for granite-timeseries-ttm-r2.
+# Note: 512-96 only exists as fine-tuned (512-96-ft-r2.1), not zero-shot.
+# Shortest zero-shot context for 96-step horizon is 1024.
+ZERO_SHOT_BRANCHES: dict[tuple[int, int], str] = {
     (1024, 96): "1024-96-r2",
     (1536, 96): "1536-96-r2",
     (512, 192): "512-192-r2",
+    (1024, 192): "1024-192-r2",
+    (1536, 192): "1536-192-r2",
     (512, 336): "512-336-r2",
+    (1024, 336): "1024-336-r2",
+    (1536, 336): "1536-336-r2",
     (512, 720): "512-720-r2",
+    (1024, 720): "1024-720-r2",
+    (1536, 720): "1536-720-r2",
 }
 
 
@@ -36,7 +42,7 @@ class GraniteTTMWrapper:
 
     model_id: str = "ibm-granite/granite-timeseries-ttm-r2"
     model_name: str = "granite-ttm"
-    context_length: int = 512
+    context_length: int = 1024
     prediction_length: int = 96
     _model: object = field(default=None, init=False, repr=False)
     _device: str = field(default="", init=False, repr=False)
@@ -57,10 +63,16 @@ class GraniteTTMWrapper:
     def _get_branch(self) -> str:
         """Resolve the HuggingFace branch for the requested config."""
         key = (self.context_length, self.prediction_length)
-        if key in DEFAULT_BRANCHES:
-            return DEFAULT_BRANCHES[key]
-        # Fallback to closest match
-        return f"{self.context_length}-{self.prediction_length}-r2"
+        if key in ZERO_SHOT_BRANCHES:
+            return ZERO_SHOT_BRANCHES[key]
+        # Fallback: try to find any branch with matching prediction_length
+        for (ctx, pl), branch in ZERO_SHOT_BRANCHES.items():
+            if pl == self.prediction_length:
+                return branch
+        raise ValueError(
+            f"No zero-shot branch for ctx={self.context_length}, "
+            f"pl={self.prediction_length}. Available: {list(ZERO_SHOT_BRANCHES.keys())}"
+        )
 
     def load(self, device: str = "auto") -> None:
         """Load Granite TTM model weights."""
@@ -70,12 +82,10 @@ class GraniteTTMWrapper:
             device = "cuda" if torch.cuda.is_available() else "cpu"
         self._device = device
 
-        from tsfm_public.toolkit.get_model import get_model
+        from tsfm_public.models.tinytimemixer import TinyTimeMixerForPrediction
 
-        self._model = get_model(
-            model_path=self.model_id,
-            context_length=self.context_length,
-            prediction_length=self.prediction_length,
+        self._model = TinyTimeMixerForPrediction.from_pretrained(
+            self.model_id,
             revision=self._get_branch(),
         )
         self._model.to(device)  # type: ignore[union-attr]
@@ -105,9 +115,9 @@ class GraniteTTMWrapper:
             pad = np.zeros(self.context_length - len(ctx))
             ctx = np.concatenate([pad, ctx])
 
-        # Shape: (1, 1, context_length) for univariate
+        # Shape: (batch, seq_len, n_channels) — TTM uses channels-last
         input_tensor = torch.tensor(
-            ctx.reshape(1, 1, -1), dtype=torch.float32, device=self._device
+            ctx.reshape(1, -1, 1), dtype=torch.float32, device=self._device
         )
 
         t0 = time.perf_counter()
@@ -117,10 +127,10 @@ class GraniteTTMWrapper:
 
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
-        # Output shape: (1, 1, prediction_length)
+        # Output shape: (1, prediction_length, n_channels)
         pred = output.prediction_outputs  # type: ignore[union-attr]
         if hasattr(pred, "cpu"):
-            pred_np = pred[0, 0, :].cpu().numpy()
+            pred_np = pred[0, :, 0].cpu().numpy()
         else:
             pred_np = np.array(pred).flatten()
 

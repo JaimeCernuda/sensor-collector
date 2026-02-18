@@ -52,6 +52,7 @@ class SampleWindow:
 
     context: pd.DataFrame
     horizon_true: pd.Series  # target values over the horizon
+    horizon_df: pd.DataFrame  # full horizon DataFrame (for future covariates)
     start_idx: int
     context_len: int
     horizon_len: int
@@ -102,11 +103,13 @@ def extract_samples(
 
         context = df.iloc[start:ctx_end].copy()
         horizon_true = df[target_col].iloc[ctx_end:hz_end].copy()
+        horizon_df = df.iloc[ctx_end:hz_end].copy()
 
         samples.append(
             SampleWindow(
                 context=context,
                 horizon_true=horizon_true,
+                horizon_df=horizon_df,
                 start_idx=int(start),
                 context_len=context_len,
                 horizon_len=horizon_len,

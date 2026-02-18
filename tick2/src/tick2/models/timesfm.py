@@ -117,9 +117,11 @@ class TimesFMWrapper:
             )
             point = np.array(point_out[0][:horizon], dtype=np.float64)
 
-            # TimesFM returns 10 quantile levels
+            # TimesFM returns quantiles as (horizon, n_quantiles); transpose
+            # to (n_quantiles, horizon) for consistency with other wrappers
             if quantile_out is not None and len(quantile_out) > 0:
-                quantiles_arr = np.array(quantile_out[0][:, :horizon], dtype=np.float64)
+                raw = np.array(quantile_out[0][:horizon], dtype=np.float64)  # (horizon, n_q)
+                quantiles_arr = raw.T  # (n_q, horizon)
                 q_levels = np.linspace(0.05, 0.95, quantiles_arr.shape[0])
             else:
                 quantiles_arr = None

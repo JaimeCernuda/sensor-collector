@@ -25,7 +25,7 @@ class TotoWrapper:
 
     model_id: str = "Datadog/Toto-Open-Base-1.0"
     model_name: str = "toto"
-    num_samples: int = 256
+    num_samples: int = 250  # must be divisible by sampling_batch_size (default=10)
     _model: object = field(default=None, init=False, repr=False)
     _forecaster: object = field(default=None, init=False, repr=False)
     _device: str = field(default="", init=False, repr=False)
@@ -118,8 +118,9 @@ class TotoWrapper:
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
 
         # Extract target channel (index 0) samples
-        # forecast.samples shape: (num_samples, n_channels, horizon)
-        samples_np = forecast.samples[:, 0, :].cpu().numpy()  # (num_samples, horizon)
+        # forecast.samples shape: (batch, n_channels, horizon, num_samples)
+        samples_np = forecast.samples[0, 0, :, :].cpu().numpy()  # (horizon, num_samples)
+        samples_np = samples_np.T  # -> (num_samples, horizon)
 
         point = np.median(samples_np, axis=0)
         q_levels = np.array([0.1, 0.25, 0.5, 0.75, 0.9])

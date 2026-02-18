@@ -92,6 +92,7 @@ class MoiraiWrapper:
             ps = 32
 
         # Create the MoiraiForecast inference wrapper
+        n_cov = n_variates - 1 if n_variates > 1 else 0
         predictor = MoiraiForecast(
             module=self._model,
             prediction_length=horizon,
@@ -99,22 +100,28 @@ class MoiraiWrapper:
             patch_size=ps,
             num_samples=self.num_samples,
             target_dim=1,  # predict only the target (first channel)
-            feat_dynamic_real_dim=n_variates - 1 if n_variates > 1 else 0,
+            feat_dynamic_real_dim=n_cov,
+            past_feat_dynamic_real_dim=n_cov,
         )
         predictor = predictor.to(self._device)
 
-        # Prepare tensors
+        # Prepare tensors — uni2ts 2.0 uses channels-last: (batch, time, dim)
         target_tensor = torch.tensor(
-            data[:, 0:1].T, dtype=torch.float32, device=self._device
-        ).unsqueeze(0)  # (1, 1, ctx_len)
+            data[:, 0:1], dtype=torch.float32, device=self._device
+        ).unsqueeze(0)  # (1, ctx_len, 1)
 
         past_feat = None
         if n_variates > 1:
             past_feat = torch.tensor(
-                data[:, 1:].T, dtype=torch.float32, device=self._device
-            ).unsqueeze(0)  # (1, n_cov, ctx_len)
+                data[:, 1:], dtype=torch.float32, device=self._device
+            ).unsqueeze(0)  # (1, ctx_len, n_cov)
 
         t0 = time.perf_counter()
+
+        # Build observed mask for covariates (required when past_feat_dynamic_real is set)
+        past_observed_feat = None
+        if past_feat is not None:
+            past_observed_feat = torch.ones_like(past_feat, dtype=torch.bool)
 
         # Generate samples
         with torch.no_grad():
@@ -124,8 +131,9 @@ class MoiraiWrapper:
                 past_is_pad=torch.zeros(
                     1, ctx_len, dtype=torch.bool, device=self._device
                 ),
-                feat_dynamic_real=past_feat,
-            )  # (1, num_samples, horizon)
+                past_feat_dynamic_real=past_feat,
+                past_observed_feat_dynamic_real=past_observed_feat,
+            )  # (1, num_samples, horizon, tgt)
 
         elapsed_ms = (time.perf_counter() - t0) * 1000.0
 

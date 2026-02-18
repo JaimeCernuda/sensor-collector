@@ -115,10 +115,16 @@ def _evaluate_sample(
 
     cov_arg = covariates if (use_covariates and model.supports_covariates) else None
 
+    # Extract future covariates from horizon window (needed by TimesFM)
+    fut_cov_arg = None
+    if cov_arg is not None and feature_cols:
+        fut_cov_arg = sample.horizon_df[feature_cols].to_numpy(dtype=np.float64)
+
     pred = model.predict(
         context=target,
         horizon=sample.horizon_len,
         covariates=cov_arg,
+        future_covariates=fut_cov_arg,
     )
 
     point = pred.point_forecast[: len(y_true)]
