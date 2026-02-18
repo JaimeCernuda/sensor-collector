@@ -1,0 +1,32 @@
+# Benchmark configuration for ChronoTick 2
+# Used by benchmark.runner.BenchmarkConfig
+
+# Context window sizes (number of 1Hz timesteps)
+context_lengths: [512, 1024]
+
+# Prediction horizons (number of 1Hz timesteps)
+horizons: [60, 120]
+
+# Number of random sample windows per machine
+n_samples: 25
+
+# Random seed for reproducibility
+seed: 42
+
+# Covariate modes to test
+use_covariates: [false, true]
+
+# Nominal miscoverage rate for Winkler score (0.2 = 80% intervals)
+quantile_alpha: 0.2
+
+# Models to benchmark (must match registry names)
+models:
+  - chronos2-small
+  - chronos2-base
+  - timesfm-2.5
+  - moirai-1.1-small
+  - toto
+  - granite-ttm
+
+# Data snapshot to use
+snapshot: "24h_snapshot"

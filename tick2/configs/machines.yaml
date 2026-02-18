@@ -1,0 +1,27 @@
+# Machine configurations for ChronoTick 2
+# Maps machine names to metadata and available sensor categories
+
+machines:
+  homelab:
+    description: "Commodity desktop (idle)"
+    hardware: "i7-6700, 16 GB DDR4"
+    approx_features: 67
+    workload: "Ambient (no synthetic stress)"
+
+  chameleon:
+    description: "Commodity server (stressed)"
+    hardware: "2x Xeon Gold 6126, 192 GB DDR4"
+    approx_features: 137
+    workload: "Cyclic stress-ng (30-min on/off)"
+
+  ares:
+    description: "HPC shared cluster node (idle)"
+    hardware: "2x Xeon Silver 4114, 95 GB DDR4"
+    approx_features: 80
+    workload: "Shared cluster (ambient multi-user)"
+
+  ares-comp-10:
+    description: "HPC compute node (stressed)"
+    hardware: "2x Xeon Silver 4114, 47 GB DDR4"
+    approx_features: 102
+    workload: "Cyclic Python stress (30-min on/off)"
