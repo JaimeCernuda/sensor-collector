@@ -10,9 +10,6 @@ collected_data/
 drift_data/
 nul
 
-# Sensor data (567 MB CSVs -- too large for git)
-sensors/data/
-
 # Generated figures
 sensors/paper_figures_sensors/
 
