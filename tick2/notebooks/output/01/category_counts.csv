@@ -1,0 +1,36 @@
+Machine,Category,Features
+homelab,C-State,14
+homelab,CPU Core Temp,4
+homelab,CPU Frequency,8
+homelab,CPU Load,7
+homelab,CPU Package Temp,1
+homelab,I/O,16
+homelab,Memory,5
+homelab,Non-CPU Temp,8
+homelab,System,4
+chameleon,C-State,16
+chameleon,CPU Core Temp,24
+chameleon,CPU Frequency,48
+chameleon,CPU Load,7
+chameleon,CPU Package Temp,2
+chameleon,I/O,8
+chameleon,Memory,5
+chameleon,Non-CPU Temp,7
+chameleon,Power,7
+chameleon,System,14
+ares,C-State,16
+ares,CPU Core Temp,20
+ares,CPU Load,7
+ares,CPU Package Temp,2
+ares,I/O,20
+ares,Memory,5
+ares,Non-CPU Temp,4
+ares,System,4
+ares-comp-10,CPU Core Temp,20
+ares-comp-10,CPU Frequency,40
+ares-comp-10,CPU Load,7
+ares-comp-10,CPU Package Temp,2
+ares-comp-10,I/O,16
+ares-comp-10,Memory,5
+ares-comp-10,Non-CPU Temp,6
+ares-comp-10,System,4
