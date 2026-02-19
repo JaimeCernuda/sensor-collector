@@ -2,12 +2,17 @@
 # Used by benchmark.runner.BenchmarkConfig
 
 # Context window sizes (number of 1Hz timesteps)
-context_lengths: [512, 1024]
+# Short (512, 1024): captures fast dynamics (chameleon stress cycles)
+# Long (1800, 3600): captures thermal drift (homelab, ares-comp-10 spikes)
+context_lengths: [512, 1024, 1800, 3600]
 
 # Prediction horizons (number of 1Hz timesteps)
-horizons: [60, 120]
+# 60s/120s: short-term (NTP-interval scale)
+# 300s: medium-term (captures slower thermal trends)
+horizons: [60, 120, 300]
 
-# Number of random sample windows per machine
+# Number of random sample windows per config combination
+# 25 windows averaged per (machine, context, horizon, cov_mode) combo
 n_samples: 25
 
 # Random seed for reproducibility

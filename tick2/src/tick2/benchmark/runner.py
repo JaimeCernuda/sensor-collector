@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 class BenchmarkConfig:
     """Configuration for a benchmark run."""
 
-    context_lengths: list[int] = field(default_factory=lambda: [512, 1024])
-    horizons: list[int] = field(default_factory=lambda: [60, 120])
+    context_lengths: list[int] = field(default_factory=lambda: [512, 1024, 1800, 3600])
+    horizons: list[int] = field(default_factory=lambda: [60, 120, 300])
     n_samples: int = 25
     seed: int = 42
     use_covariates: list[bool] = field(default_factory=lambda: [False, True])
