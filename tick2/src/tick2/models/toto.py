@@ -26,6 +26,7 @@ class TotoWrapper:
     model_id: str = "Datadog/Toto-Open-Base-1.0"
     model_name: str = "toto"
     num_samples: int = 250  # must be divisible by sampling_batch_size (default=10)
+    max_covariates: int = 30  # cap covariates to avoid OOM on large contexts
     _model: object = field(default=None, init=False, repr=False)
     _forecaster: object = field(default=None, init=False, repr=False)
     _device: str = field(default="", init=False, repr=False)
@@ -75,11 +76,19 @@ class TotoWrapper:
         import torch
         from toto.data.util.dataset import MaskedTimeseries
 
+        # Free any cached GPU memory before allocation
+        if self._device == "cuda":
+            torch.cuda.empty_cache()
+
         ctx_len = len(context)
 
         # Build multivariate series: (n_channels, seq_len)
         if covariates is not None:
             cov_2d = covariates.reshape(ctx_len, -1)
+            # Cap covariate count to avoid OOM on long contexts.
+            # Select first N covariates (caller should pre-sort by importance).
+            if cov_2d.shape[1] > self.max_covariates:
+                cov_2d = cov_2d[:, : self.max_covariates]
             series_data = np.column_stack([context, cov_2d]).T  # (n_channels, seq_len)
         else:
             series_data = context.reshape(1, -1)  # (1, seq_len)

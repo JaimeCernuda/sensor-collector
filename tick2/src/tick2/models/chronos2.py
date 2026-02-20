@@ -96,9 +96,12 @@ class Chronos2Wrapper:
 
         if covariates is not None:
             n_features = covariates.shape[1] if covariates.ndim > 1 else 1
-            cov_2d = covariates.reshape(ctx_len, -1)
-            for i in range(n_features):
-                ctx_df[f"cov_{i}"] = cov_2d[:, i].astype(np.float32)
+            cov_2d = covariates.reshape(ctx_len, -1).astype(np.float32)
+            cov_df = pd.DataFrame(
+                cov_2d,
+                columns=[f"cov_{i}" for i in range(n_features)],
+            )
+            ctx_df = pd.concat([ctx_df, cov_df], axis=1)
 
             # If future covariates provided, build future_df with same columns
             if future_covariates is not None:

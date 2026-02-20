@@ -51,6 +51,17 @@ class TimesFMWrapper:
         """
         import timesfm
 
+        # timesfm/__init__.py wraps the 2.5 import in try/except pass,
+        # so a missing attribute means a silent ImportError. Surface it.
+        if not hasattr(timesfm, "TimesFM_2p5_200M_torch"):
+            from timesfm.timesfm_2p5 import timesfm_2p5_torch  # noqa: F401
+
+            raise AttributeError(
+                "timesfm.TimesFM_2p5_200M_torch not found even after "
+                "direct sub-import. Ensure `pip install -e '.[torch]'` "
+                "completed successfully."
+            )
+
         self._model = timesfm.TimesFM_2p5_200M_torch.from_pretrained(self.model_id)
 
         if device == "auto":
