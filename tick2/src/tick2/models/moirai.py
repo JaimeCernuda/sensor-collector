@@ -26,6 +26,7 @@ class MoiraiWrapper:
     model_name: str = "moirai-1.1-small"
     patch_size: int | str = "auto"
     num_samples: int = 100
+    max_covariates: int = 30  # cap covariates to avoid OOM on large contexts
     _model: object = field(default=None, init=False, repr=False)
     _device: str = field(default="", init=False, repr=False)
 
@@ -75,9 +76,16 @@ class MoiraiWrapper:
         import torch
         from uni2ts.model.moirai import MoiraiForecast
 
+        # Free any cached GPU memory before allocation
+        if self._device == "cuda":
+            torch.cuda.empty_cache()
+
         # Build multivariate input: (n_variates, seq_len)
         if covariates is not None:
             cov_2d = covariates.reshape(len(context), -1)
+            # Cap covariate count to avoid OOM on long contexts.
+            if cov_2d.shape[1] > self.max_covariates:
+                cov_2d = cov_2d[:, : self.max_covariates]
             # Target as first channel, covariates as subsequent channels
             data = np.column_stack([context, cov_2d])  # (seq_len, n_variates)
         else:
