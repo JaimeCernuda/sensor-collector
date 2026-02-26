@@ -1,11 +1,14 @@
 """Google Colab environment utilities.
 
-Auto-detection, Drive mounting, path management, and GPU setup for
-running ChronoTick 2 benchmarks and fine-tuning on Colab.
+Auto-detection, Drive mounting, path management, GPU setup, and
+checkpoint persistence for running ChronoTick 2 benchmarks and
+fine-tuning on Colab.
 """
 
 from __future__ import annotations
 
+import logging
+import shutil
 from pathlib import Path
 
 
@@ -108,6 +111,149 @@ def setup_gpu() -> str:
     except ImportError:
         print("PyTorch not installed, using CPU")
         return "cpu"
+
+
+def _drive_is_mounted(mount_point: str = "/content/drive") -> bool:
+    """Check if Google Drive is mounted at the given path."""
+    return Path(mount_point).exists()
+
+
+def save_checkpoint_to_drive(
+    local_path: str | Path,
+    drive_base: str = "/content/drive/MyDrive/chronotick2/checkpoints",
+    notebook: str = "03",
+    model_name: str = "",
+) -> Path | None:
+    """Copy a checkpoint directory to Google Drive for persistence.
+
+    Copies the entire directory tree from ``local_path`` to a structured
+    location on Drive.  Returns the Drive path on success, or ``None`` if
+    not running in Colab or Drive is not mounted.
+
+    Args:
+        local_path: Local checkpoint directory to persist.
+        drive_base: Root directory on Drive for checkpoints.
+        notebook: Notebook identifier (used as a subdirectory).
+        model_name: Model identifier (used as a subdirectory).
+
+    Returns:
+        The Drive destination path, or ``None`` if skipped.
+    """
+    if not is_colab():
+        return None
+
+    if not _drive_is_mounted():
+        print("[DRIVE] Drive not mounted, skipping checkpoint save")
+        return None
+
+    local = Path(local_path)
+    if not local.exists():
+        print(f"[DRIVE] Local path does not exist: {local}")
+        return None
+
+    dest = Path(drive_base) / notebook / model_name
+    dest.parent.mkdir(parents=True, exist_ok=True)
+
+    if local.is_dir():
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(str(local), str(dest))
+    else:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(str(local), str(dest))
+
+    print(f"[DRIVE] Saved checkpoint to {dest}")
+    return dest
+
+
+def load_checkpoint_from_drive(
+    drive_base: str = "/content/drive/MyDrive/chronotick2/checkpoints",
+    notebook: str = "03",
+    model_name: str = "",
+    local_path: str | Path | None = None,
+) -> Path | None:
+    """Load a checkpoint from Google Drive back to the local filesystem.
+
+    If ``local_path`` is provided, the checkpoint is copied there;
+    otherwise the Drive path is returned directly (since Drive is
+    mounted as a filesystem).
+
+    Args:
+        drive_base: Root directory on Drive for checkpoints.
+        notebook: Notebook identifier (used as a subdirectory).
+        model_name: Model identifier (used as a subdirectory).
+        local_path: Optional local destination to copy into.
+
+    Returns:
+        Path to the checkpoint (local copy or Drive), or ``None`` if
+        not found.
+    """
+    if not is_colab():
+        return None
+
+    if not _drive_is_mounted():
+        return None
+
+    src = Path(drive_base) / notebook / model_name
+    if not src.exists():
+        return None
+
+    if local_path is not None:
+        dest = Path(local_path)
+        if not dest.exists():
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if src.is_dir():
+                shutil.copytree(str(src), str(dest))
+            else:
+                shutil.copy2(str(src), str(dest))
+            print(f"[DRIVE] Restored checkpoint to {dest}")
+        else:
+            print(f"[DRIVE] Local path already exists, skipping copy: {dest}")
+        return dest
+
+    return src
+
+
+def setup_training_log(
+    output_dir: str | Path,
+    name: str = "training",
+) -> Path:
+    """Configure file-based logging for fine-tuning.
+
+    Adds a :class:`logging.FileHandler` to the ``tick2.finetuning`` logger so
+    all training messages (epoch losses, early stopping, errors) are persisted
+    to disk.  The log file lives inside *output_dir* and gets saved to Drive
+    with the checkpoint.
+
+    Args:
+        output_dir: Directory where the log file will be created.
+        name: Base name for the log file (without extension).
+
+    Returns:
+        Path to the created log file.
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    log_path = output_dir / f"{name}.log"
+
+    ft_logger = logging.getLogger("tick2.finetuning")
+    ft_logger.setLevel(logging.DEBUG)
+
+    # Avoid duplicate handlers when the cell is re-run
+    resolved = log_path.resolve()
+    for h in ft_logger.handlers[:]:
+        if isinstance(h, logging.FileHandler) and Path(h.baseFilename) == resolved:
+            return log_path
+
+    handler = logging.FileHandler(str(log_path), mode="a", encoding="utf-8")
+    handler.setLevel(logging.DEBUG)
+    handler.setFormatter(
+        logging.Formatter("%(asctime)s %(name)s %(levelname)s %(message)s")
+    )
+    ft_logger.addHandler(handler)
+
+    return log_path
 
 
 def install_model_deps(model_name: str) -> None:
