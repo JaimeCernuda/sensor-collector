@@ -6,3 +6,6 @@
 2026-02-26 07:02:48,187 tick2.finetuning.granite_ft INFO Granite FT: combined (mode=combined)
 2026-02-26 08:50:17,557 tick2.finetuning.base INFO Loss history (3477 epochs) written to /content/sensor-collector/tick2/notebooks/output/03/granite_ttm_ft/combined/E2_mix10/combined/combined_loss_history.csv
 2026-02-26 08:50:17,576 tick2.finetuning.granite_ft INFO Granite FT combined: 6448.3s, best_epoch=49, val_loss=0.009841
+2026-02-26 08:50:23,227 tick2.finetuning.granite_ft INFO Granite FT: combined (mode=combined)
+2026-02-26 10:37:28,056 tick2.finetuning.base INFO Loss history (3477 epochs) written to /content/sensor-collector/tick2/notebooks/output/03/granite_ttm_ft/combined/E3_mix30/combined/combined_loss_history.csv
+2026-02-26 10:37:28,074 tick2.finetuning.granite_ft INFO Granite FT combined: 6423.8s, best_epoch=49, val_loss=0.009837
