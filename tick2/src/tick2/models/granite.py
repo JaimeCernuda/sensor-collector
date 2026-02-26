@@ -38,6 +38,10 @@ class GraniteTTMWrapper:
 
     TTM is uniquely small (1-5M params) and CPU-capable. It produces
     point forecasts only (no native probabilistic output).
+
+    For fine-tuned mix_channel models, set ``_n_input_channels`` to the
+    number of channels the model expects (1 target + N covariates).
+    This enables multivariate inference via :meth:`predict`.
     """
 
     model_id: str = "ibm-granite/granite-timeseries-ttm-r2"
@@ -46,6 +50,7 @@ class GraniteTTMWrapper:
     prediction_length: int = 96
     _model: object = field(default=None, init=False, repr=False)
     _device: str = field(default="", init=False, repr=False)
+    _n_input_channels: int = field(default=1, init=False, repr=False)
 
     @property
     def name(self) -> str:
@@ -53,8 +58,8 @@ class GraniteTTMWrapper:
 
     @property
     def supports_covariates(self) -> bool:
-        # Channel-mix fine-tuning enables covariates, but zero-shot is univariate
-        return False
+        """True when the loaded model expects multivariate (mix_channel) input."""
+        return self._n_input_channels > 1
 
     @property
     def supports_quantiles(self) -> bool:
@@ -66,7 +71,7 @@ class GraniteTTMWrapper:
         if key in ZERO_SHOT_BRANCHES:
             return ZERO_SHOT_BRANCHES[key]
         # Fallback: try to find any branch with matching prediction_length
-        for (ctx, pl), branch in ZERO_SHOT_BRANCHES.items():
+        for (_ctx, pl), branch in ZERO_SHOT_BRANCHES.items():
             if pl == self.prediction_length:
                 return branch
         raise ValueError(
@@ -100,9 +105,10 @@ class GraniteTTMWrapper:
     ) -> PredictionResult:
         """Generate a point forecast using Granite TTM.
 
-        TTM expects input shape (batch, n_channels, seq_len). For zero-shot
-        univariate: (1, 1, context_length). Covariates are ignored in
-        zero-shot mode (use channel-mix fine-tuning to enable).
+        TTM expects input shape ``(batch, seq_len, n_channels)``.
+        For zero-shot univariate: ``(1, context_length, 1)``.
+        For mix_channel fine-tuned models: ``(1, context_length, 1 + n_cov)``
+        where covariates are stacked alongside the target channel.
         """
         if self._model is None:
             raise RuntimeError("Call load() before predict()")
@@ -115,9 +121,28 @@ class GraniteTTMWrapper:
             pad = np.zeros(self.context_length - len(ctx))
             ctx = np.concatenate([pad, ctx])
 
-        # Shape: (batch, seq_len, n_channels) — TTM uses channels-last
+        # Build input tensor: (batch, seq_len, n_channels)
+        n_cov_expected = self._n_input_channels - 1
+        if covariates is not None and n_cov_expected > 0:
+            cov = covariates[-self.context_length :]
+            # Pad covariates if context was padded
+            if len(cov) < self.context_length:
+                cov_pad = np.zeros((self.context_length - len(cov), cov.shape[1]))
+                cov = np.concatenate([cov_pad, cov], axis=0)
+            # Ensure correct number of covariate channels
+            if cov.shape[1] > n_cov_expected:
+                cov = cov[:, :n_cov_expected]
+            elif cov.shape[1] < n_cov_expected:
+                extra = np.zeros((cov.shape[0], n_cov_expected - cov.shape[1]))
+                cov = np.concatenate([cov, extra], axis=1)
+            input_data = np.column_stack([ctx.reshape(-1, 1), cov])
+        else:
+            input_data = ctx.reshape(-1, 1)
+
         input_tensor = torch.tensor(
-            ctx.reshape(1, -1, 1), dtype=torch.float32, device=self._device
+            input_data.reshape(1, input_data.shape[0], input_data.shape[1]),
+            dtype=torch.float32,
+            device=self._device,
         )
 
         t0 = time.perf_counter()

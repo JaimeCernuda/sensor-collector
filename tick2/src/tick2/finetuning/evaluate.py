@@ -88,6 +88,7 @@ def evaluate_finetuned(
     n_samples: int = 25,
     quantile_alpha: float = 0.2,
     progress: bool = True,
+    shared_feature_cols: list[str] | None = None,
 ) -> pd.DataFrame:
     """Evaluate a fine-tuned model on test splits.
 
@@ -110,6 +111,10 @@ def evaluate_finetuned(
         n_samples: Number of random windows per config.
         quantile_alpha: Alpha for Winkler score (0.2 = 80% interval).
         progress: Show tqdm progress bar.
+        shared_feature_cols: If provided, use these feature columns for all
+            machines instead of per-machine feature_cols.  Required for
+            mix_channel fine-tuned models that were trained on the shared
+            feature intersection across all machines.
 
     Returns:
         DataFrame with one row per (machine, context_length, horizon, cov_mode)
@@ -138,7 +143,12 @@ def evaluate_finetuned(
     for machine, ctx_len, hz, use_cov in iterator:
         prep = prepared[machine]
         test_df = prep.split.test
-        feature_cols = prep.feature_cols if use_cov else None
+        if use_cov:
+            feature_cols = (
+                shared_feature_cols if shared_feature_cols else prep.feature_cols
+            )
+        else:
+            feature_cols = None
 
         try:
             samples = extract_samples(
