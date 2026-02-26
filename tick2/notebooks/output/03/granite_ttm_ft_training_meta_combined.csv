@@ -1,4 +1,4 @@
-model,machine,training_time_s,best_epoch,checkpoint_path,context_length,prediction_length,decoder_mode,freeze_backbone,learning_rate,num_epochs,batch_size,n_features,training_mode,train_rows
-granite-ttm-ft-E1_univariate,combined,1154.11482526,0,/content/sensor-collector/tick2/notebooks/output/03/granite_ttm_ft/combined/E1_univariate/combined/best,512,96,common_channel,True,0.001,50,64,3,combined,223122
-granite-ttm-ft-E2_mix10,combined,6448.326063283999,49,/content/sensor-collector/tick2/notebooks/output/03/granite_ttm_ft/combined/E2_mix10/combined/best,512,96,mix_channel,True,0.001,50,64,3,combined,223122
-granite-ttm-ft-E3_mix30,combined,6423.779029394999,49,/content/sensor-collector/tick2/notebooks/output/03/granite_ttm_ft/combined/E3_mix30/combined/best,512,96,mix_channel,True,0.001,50,64,3,combined,223122
+model,machine,training_time_s,best_epoch,checkpoint_path,name,decoder_mode,max_covariates
+granite-ttm-ft-E1_univariate,combined,0.0,0,/content/sensor-collector/tick2/notebooks/output/03/granite_ttm_ft/combined/E1_univariate/combined/best,E1_univariate,common_channel,0
+granite-ttm-ft-E2_mix10,combined,0.0,0,/content/sensor-collector/tick2/notebooks/output/03/granite_ttm_ft/combined/E2_mix10/combined/best,E2_mix10,mix_channel,10
+granite-ttm-ft-E3_mix30,combined,0.0,0,/content/sensor-collector/tick2/notebooks/output/03/granite_ttm_ft/combined/E3_mix30/combined/best,E3_mix30,mix_channel,30
