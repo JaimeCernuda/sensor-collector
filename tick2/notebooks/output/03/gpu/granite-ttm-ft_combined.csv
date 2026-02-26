@@ -1,0 +1,9 @@
+model,machine,context_length,horizon,with_covariates,device,n_samples,mae,rmse,inference_ms,coverage,crps,winkler,training_mode,ft_epochs,ft_time_s,ft_train_machines,experiment
+granite-ttm-ft-E1_univariate,homelab,512,60,False,cuda,25,0.0022008647918701166,0.0026042606314067925,6.299812160068541,,,,ft_combined,0,1154.11482526,combined,E1_univariate
+granite-ttm-ft-E1_univariate,homelab,512,96,False,cuda,25,0.007897177934646607,0.012832881817439577,4.938870840051095,,,,ft_combined,0,1154.11482526,combined,E1_univariate
+granite-ttm-ft-E1_univariate,chameleon,512,60,False,cuda,25,0.015689503987630207,0.0175186011698105,4.937493640100001,,,,ft_combined,0,1154.11482526,combined,E1_univariate
+granite-ttm-ft-E1_univariate,chameleon,512,96,False,cuda,25,0.014935960769653318,0.01671687020399286,5.089361919890507,,,,ft_combined,0,1154.11482526,combined,E1_univariate
+granite-ttm-ft-E1_univariate,ares,512,60,False,cuda,25,0.0008480758666992187,0.0012388356045940352,4.860167639926658,,,,ft_combined,0,1154.11482526,combined,E1_univariate
+granite-ttm-ft-E1_univariate,ares,512,96,False,cuda,25,0.0009648704528808594,0.0013805638777908862,5.332964159824769,,,,ft_combined,0,1154.11482526,combined,E1_univariate
+granite-ttm-ft-E1_univariate,ares-comp-10,512,60,False,cuda,25,0.17118842188517255,0.270178074795082,4.921397639991483,,,,ft_combined,0,1154.11482526,combined,E1_univariate
+granite-ttm-ft-E1_univariate,ares-comp-10,512,96,False,cuda,25,0.21978772242863975,0.347915589359247,4.822127239822294,,,,ft_combined,0,1154.11482526,combined,E1_univariate
