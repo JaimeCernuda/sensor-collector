@@ -164,9 +164,19 @@ def finetune_chronos2(
 
         # Determine checkpoint path
         ckpt_path = run_dir / ckpt_name
-        if not ckpt_path.exists():
-            # Chronos may save under a different structure
-            ckpt_path = run_dir
+
+        # pipeline.fit() may only save LoRA adapter weights, which
+        # BaseChronosPipeline.from_pretrained() cannot reload standalone.
+        # Explicitly save the full (merged) model + tokenizer so the
+        # checkpoint is self-contained and loadable.
+        ckpt_path.mkdir(parents=True, exist_ok=True)
+        if hasattr(pipeline, "model") and hasattr(pipeline.model, "save_pretrained"):
+            pipeline.model.save_pretrained(str(ckpt_path))
+            logger.info("Saved full model to %s", ckpt_path)
+        if hasattr(pipeline, "tokenizer") and hasattr(
+            pipeline.tokenizer, "save_pretrained"
+        ):
+            pipeline.tokenizer.save_pretrained(str(ckpt_path))
 
         total_train_rows = sum(len(p.split.train) for p in run_data.values())
 
