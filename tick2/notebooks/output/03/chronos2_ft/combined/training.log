@@ -6,3 +6,4 @@
 2026-02-27 05:27:50,433 tick2.finetuning.chronos2_ft INFO Chronos-2 FT: combined (mode=combined, ft=lora)
 2026-02-27 06:04:18,743 tick2.finetuning.chronos2_ft INFO Saved full model to /content/sensor-collector/tick2/notebooks/output/03/chronos2_ft/combined/E2_lora_cov/combined/combined_best
 2026-02-27 06:04:18,744 tick2.finetuning.chronos2_ft INFO Chronos-2 FT combined: 2186.4s, ckpt=/content/sensor-collector/tick2/notebooks/output/03/chronos2_ft/combined/E2_lora_cov/combined/combined_best
+2026-02-27 06:04:21,450 tick2.finetuning.chronos2_ft INFO Chronos-2 FT: combined (mode=combined, ft=full)
