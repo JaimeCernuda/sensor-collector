@@ -1,0 +1,59 @@
+\begin{table}[t]
+\centering
+\caption{Zero-shot benchmark results}
+\label{tab:benchmark}
+\begin{tabular}{lllrrrrr}
+\toprule
+Model & Machine & Ctx & Hz & Cov & MAE & RMSE & Time (ms) & Coverage & CRPS \\
+\midrule
+chronos2-ft-E3_full_cov & homelab & 512 & 60 & False & 0.0002 & 0.0003 & 32.6 & 97.9% & 0.0002 \\
+chronos2-ft-E3_full_cov & homelab & 512 & 60 & True & 0.0003 & 0.0003 & 31.1 & 96.5% & 0.0002 \\
+chronos2-ft-E3_full_cov & homelab & 512 & 120 & False & 0.0074 & 0.0117 & 29.7 & 93.1% & 0.0074 \\
+chronos2-ft-E3_full_cov & homelab & 512 & 120 & True & 0.0074 & 0.0118 & 32.5 & 90.5% & 0.0074 \\
+chronos2-ft-E3_full_cov & homelab & 512 & 300 & False & 0.0130 & 0.0165 & 35.7 & 90.8% & 0.0129 \\
+chronos2-ft-E3_full_cov & homelab & 512 & 300 & True & 0.0130 & 0.0166 & 40.8 & 87.7% & 0.0130 \\
+chronos2-ft-E3_full_cov & homelab & 1024 & 60 & False & 0.0119 & 0.0152 & 25.6 & 94.0% & 0.0120 \\
+chronos2-ft-E3_full_cov & homelab & 1024 & 60 & True & 0.0121 & 0.0153 & 30.6 & 82.7% & 0.0120 \\
+chronos2-ft-E3_full_cov & homelab & 1024 & 120 & False & 0.0198 & 0.0268 & 31.3 & 91.7% & 0.0208 \\
+chronos2-ft-E3_full_cov & homelab & 1024 & 120 & True & 0.0197 & 0.0266 & 36.0 & 88.2% & 0.0218 \\
+chronos2-ft-E3_full_cov & homelab & 1024 & 300 & False & 0.0386 & 0.0471 & 39.4 & 76.4% & 0.0391 \\
+chronos2-ft-E3_full_cov & homelab & 1024 & 300 & True & 0.0384 & 0.0468 & 42.1 & 73.2% & 0.0386 \\
+chronos2-ft-E3_full_cov & chameleon & 512 & 60 & False & 0.0116 & 0.0132 & 26.1 & 90.2% & 0.0115 \\
+chronos2-ft-E3_full_cov & chameleon & 512 & 60 & True & 0.0116 & 0.0131 & 29.8 & 85.5% & 0.0114 \\
+chronos2-ft-E3_full_cov & chameleon & 512 & 120 & False & 0.0148 & 0.0171 & 27.8 & 79.1% & 0.0136 \\
+chronos2-ft-E3_full_cov & chameleon & 512 & 120 & True & 0.0152 & 0.0175 & 32.7 & 80.2% & 0.0138 \\
+chronos2-ft-E3_full_cov & chameleon & 512 & 300 & False & 0.0252 & 0.0312 & 35.7 & 58.3% & 0.0193 \\
+chronos2-ft-E3_full_cov & chameleon & 512 & 300 & True & 0.0258 & 0.0320 & 41.0 & 62.1% & 0.0201 \\
+chronos2-ft-E3_full_cov & chameleon & 1024 & 60 & False & 0.0052 & 0.0069 & 25.7 & 79.8% & 0.0048 \\
+chronos2-ft-E3_full_cov & chameleon & 1024 & 60 & True & 0.0051 & 0.0068 & 30.6 & 87.7% & 0.0050 \\
+chronos2-ft-E3_full_cov & chameleon & 1024 & 120 & False & 0.0079 & 0.0109 & 28.3 & 79.8% & 0.0068 \\
+chronos2-ft-E3_full_cov & chameleon & 1024 & 120 & True & 0.0079 & 0.0109 & 33.2 & 80.8% & 0.0071 \\
+chronos2-ft-E3_full_cov & chameleon & 1024 & 300 & False & 0.0237 & 0.0275 & 36.7 & 62.6% & 0.0195 \\
+chronos2-ft-E3_full_cov & chameleon & 1024 & 300 & True & 0.0239 & 0.0280 & 42.2 & 65.8% & 0.0191 \\
+chronos2-ft-E3_full_cov & ares & 512 & 60 & False & 0.0005 & 0.0009 & 25.6 & 97.4% & 0.0005 \\
+chronos2-ft-E3_full_cov & ares & 512 & 60 & True & 0.0005 & 0.0009 & 29.9 & 94.4% & 0.0006 \\
+chronos2-ft-E3_full_cov & ares & 512 & 120 & False & 0.0005 & 0.0009 & 28.2 & 97.3% & 0.0005 \\
+chronos2-ft-E3_full_cov & ares & 512 & 120 & True & 0.0005 & 0.0009 & 33.1 & 96.8% & 0.0006 \\
+chronos2-ft-E3_full_cov & ares & 512 & 300 & False & 0.0014 & 0.0018 & 35.7 & 93.5% & 0.0011 \\
+chronos2-ft-E3_full_cov & ares & 512 & 300 & True & 0.0014 & 0.0019 & 41.1 & 93.4% & 0.0011 \\
+chronos2-ft-E3_full_cov & ares & 1024 & 60 & False & 0.0001 & 0.0001 & 25.6 & 99.9% & 0.0001 \\
+chronos2-ft-E3_full_cov & ares & 1024 & 60 & True & 0.0001 & 0.0001 & 30.7 & 95.5% & 0.0001 \\
+chronos2-ft-E3_full_cov & ares & 1024 & 120 & False & 0.0001 & 0.0002 & 28.2 & 98.5% & 0.0002 \\
+chronos2-ft-E3_full_cov & ares & 1024 & 120 & True & 0.0002 & 0.0002 & 33.2 & 97.0% & 0.0002 \\
+chronos2-ft-E3_full_cov & ares & 1024 & 300 & False & 0.0016 & 0.0017 & 36.4 & 90.0% & 0.0016 \\
+chronos2-ft-E3_full_cov & ares & 1024 & 300 & True & 0.0017 & 0.0019 & 55.7 & 88.0% & 0.0016 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 512 & 60 & False & 0.0989 & 0.2053 & 25.2 & 80.1% & 0.0855 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 512 & 60 & True & 0.1143 & 0.2184 & 29.9 & 77.9% & 0.0893 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 512 & 120 & False & 0.1515 & 0.3051 & 28.3 & 74.5% & 0.1255 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 512 & 120 & True & 0.1446 & 0.2945 & 32.7 & 83.1% & 0.1209 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 512 & 300 & False & 0.1453 & 0.3114 & 35.8 & 75.0% & 0.1195 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 512 & 300 & True & 0.1524 & 0.3190 & 41.7 & 75.9% & 0.1316 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 1024 & 60 & False & 0.0883 & 0.1291 & 25.8 & 72.9% & 0.0735 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 1024 & 60 & True & 0.0770 & 0.1163 & 30.6 & 76.5% & 0.0666 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 1024 & 120 & False & 0.0922 & 0.1491 & 28.5 & 73.5% & 0.0834 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 1024 & 120 & True & 0.0892 & 0.1461 & 33.3 & 84.9% & 0.0733 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 1024 & 300 & False & 0.0907 & 0.2042 & 36.4 & 79.8% & 0.0805 \\
+chronos2-ft-E3_full_cov & ares-comp-10 & 1024 & 300 & True & 0.0902 & 0.2005 & 41.2 & 86.0% & 0.0820 \\
+\bottomrule
+\end{tabular}
+\end{table}
