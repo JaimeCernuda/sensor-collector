@@ -128,7 +128,8 @@ class TotoWrapper:
 
         # Extract target channel (index 0) samples
         # forecast.samples shape: (batch, n_channels, horizon, num_samples)
-        samples_np = forecast.samples[0, 0, :, :].cpu().numpy()  # (horizon, num_samples)
+        # shape: (horizon, num_samples)
+        samples_np = forecast.samples[0, 0, :, :].cpu().numpy()
         samples_np = samples_np.T  # -> (num_samples, horizon)
 
         point = np.median(samples_np, axis=0)

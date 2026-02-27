@@ -19,6 +19,13 @@ _REGISTRY: dict[str, tuple[str, str]] = {
     "moirai-1.1-large": ("tick2.models.moirai", "MoiraiWrapper"),
     "toto": ("tick2.models.toto", "TotoWrapper"),
     "granite-ttm": ("tick2.models.granite", "GraniteTTMWrapper"),
+    # Fine-tuned variants reuse the same wrappers with custom model_id
+    # pointing to the local checkpoint path. Use get_model("granite-ttm-ft",
+    # model_id="/path/to/checkpoint") to load.
+    "granite-ttm-ft": ("tick2.models.granite", "GraniteTTMWrapper"),
+    "chronos2-ft": ("tick2.models.chronos2", "Chronos2Wrapper"),
+    "moirai-1.1-ft": ("tick2.models.moirai", "MoiraiWrapper"),
+    "timesfm-2.5-ft": ("tick2.models.timesfm", "TimesFMWrapper"),
 }
 
 # Maps short names to HuggingFace model IDs
@@ -32,6 +39,11 @@ MODEL_IDS: dict[str, str] = {
     "moirai-1.1-large": "Salesforce/moirai-1.1-R-large",
     "toto": "Datadog/Toto-Open-Base-1.0",
     "granite-ttm": "ibm-granite/granite-timeseries-ttm-r2",
+    # FT variants: model_id should be overridden with local checkpoint path
+    "granite-ttm-ft": "ibm-granite/granite-timeseries-ttm-r2",
+    "chronos2-ft": "autogluon/chronos-2-small",
+    "moirai-1.1-ft": "Salesforce/moirai-1.1-R-small",
+    "timesfm-2.5-ft": "google/timesfm-2.5-200m-pytorch",
 }
 
 

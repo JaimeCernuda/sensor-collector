@@ -50,6 +50,12 @@ include = ["src", "tests"]
 #   Toto:       pip install toto-ts
 #   Granite:    pip install "granite-tsfm>=0.3.3"
 #   AutoGluon:  pip install "autogluon-timeseries>=1.5"  (for Chronos-2 fine-tuning)
+#
+# Fine-tuning additionally requires (per model):
+#   Granite FT: granite-tsfm + transformers + datasets
+#   Chronos FT: chronos-forecasting[extras]
+#   Moirai FT:  uni2ts + pytorch-lightning
+#   TimesFM FT: timesfm from source (finetuning submodule)
 
 [dependency-groups]
 dev = ["pytest>=8.0", "pyright>=1.1", "ruff>=0.4"]

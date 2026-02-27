@@ -12,6 +12,7 @@ from pathlib import Path
 
 import pandas as pd
 
+
 # Default path to sensor data: walk up from this file to find the repo root
 # (directory containing both tick2/ and sensors/).
 def _find_data_dir() -> Path:

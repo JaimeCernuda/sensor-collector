@@ -126,7 +126,7 @@ class MoiraiWrapper:
 
         t0 = time.perf_counter()
 
-        # Build observed mask for covariates (required when past_feat_dynamic_real is set)
+        # Build observed mask for covariates (when past_feat_dynamic_real is set)
         past_observed_feat = None
         if past_feat is not None:
             past_observed_feat = torch.ones_like(past_feat, dtype=torch.bool)
