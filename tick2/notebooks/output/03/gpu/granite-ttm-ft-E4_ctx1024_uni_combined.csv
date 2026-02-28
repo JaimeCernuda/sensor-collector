@@ -1,0 +1,9 @@
+model,machine,context_length,horizon,with_covariates,device,n_samples,mae,rmse,inference_ms,coverage,crps,winkler,training_mode,ft_epochs,ft_time_s,ft_train_machines,experiment
+granite-ttm-ft-E4_ctx1024_uni,homelab,1024,60,False,cuda,25,0.019250835418701172,0.022827670576723805,7.161578199884389,,,,ft_combined,0,1482.278143264,combined,E4_ctx1024_uni
+granite-ttm-ft-E4_ctx1024_uni,homelab,1024,96,False,cuda,25,0.023229158719380697,0.0293083796716059,5.4238523200911,,,,ft_combined,0,1482.278143264,combined,E4_ctx1024_uni
+granite-ttm-ft-E4_ctx1024_uni,chameleon,1024,60,False,cuda,25,0.017395319620768228,0.01900505400119814,5.408720079794875,,,,ft_combined,0,1482.278143264,combined,E4_ctx1024_uni
+granite-ttm-ft-E4_ctx1024_uni,chameleon,1024,96,False,cuda,25,0.018121411005655924,0.02082517433226859,5.48746492000646,,,,ft_combined,0,1482.278143264,combined,E4_ctx1024_uni
+granite-ttm-ft-E4_ctx1024_uni,ares,1024,60,False,cuda,25,0.0011162312825520834,0.0012306126176915811,7.266807560081361,,,,ft_combined,0,1482.278143264,combined,E4_ctx1024_uni
+granite-ttm-ft-E4_ctx1024_uni,ares,1024,96,False,cuda,25,0.0014510838190714517,0.0015773033816254647,8.462054559786338,,,,ft_combined,0,1482.278143264,combined,E4_ctx1024_uni
+granite-ttm-ft-E4_ctx1024_uni,ares-comp-10,1024,60,False,cuda,25,0.17954965845743817,0.22132270143360397,7.0958212400000775,,,,ft_combined,0,1482.278143264,combined,E4_ctx1024_uni
+granite-ttm-ft-E4_ctx1024_uni,ares-comp-10,1024,96,False,cuda,25,0.2466463112831116,0.28906717309369007,6.968968880028115,,,,ft_combined,0,1482.278143264,combined,E4_ctx1024_uni
