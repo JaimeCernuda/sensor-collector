@@ -1,0 +1,95 @@
+\begin{table}[t]
+\centering
+\caption{Zero-shot benchmark results}
+\label{tab:benchmark}
+\begin{tabular}{lllrrr}
+\toprule
+Model & Machine & Ctx & Hz & Cov & MAE & RMSE & Time (ms) \\
+\midrule
+granite-ttm-ft-E4_ctx1024_uni & ares & 1024 & 60 & False & 0.0011 & 0.0012 & 7.3 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & ares & 1024 & 60 & False & 0.0011 & 0.0012 & 5.2 \\
+granite-ttm & ares & 1024 & 60 & False & 0.0041 & 0.0044 & 5.1 \\
+granite-ttm-ft-E5_ctx1024_mix10 & ares & 1024 & 60 & True & 0.0011 & 0.0011 & 8.9 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & ares & 1024 & 60 & True & 0.0006 & 0.0007 & 9.0 \\
+granite-ttm-ft-E4_ctx1024_uni & ares & 1024 & 96 & False & 0.0015 & 0.0016 & 8.5 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & ares & 1024 & 96 & False & 0.0011 & 0.0012 & 6.1 \\
+granite-ttm-ft-E5_ctx1024_mix10 & ares & 1024 & 96 & True & 0.0012 & 0.0012 & 14.5 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & ares & 1024 & 96 & True & 0.0009 & 0.0009 & 9.5 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & ares & 1024 & 120 & False & 0.0011 & 0.0012 & 5.6 \\
+granite-ttm & ares & 1024 & 120 & False & 0.0070 & 0.0075 & 4.9 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & ares & 1024 & 120 & True & 0.0008 & 0.0008 & 8.5 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & ares & 1024 & 192 & False & 0.0014 & 0.0016 & 5.3 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & ares & 1024 & 192 & True & 0.0013 & 0.0013 & 9.5 \\
+granite-ttm & ares & 1024 & 300 & False & 0.0072 & 0.0076 & 8.1 \\
+granite-ttm & ares & 1800 & 60 & False & 0.0040 & 0.0044 & 6.9 \\
+granite-ttm & ares & 1800 & 120 & False & 0.0057 & 0.0061 & 6.5 \\
+granite-ttm & ares & 1800 & 300 & False & 0.0069 & 0.0073 & 6.6 \\
+granite-ttm & ares & 3600 & 60 & False & 0.0038 & 0.0041 & 6.1 \\
+granite-ttm & ares & 3600 & 120 & False & 0.0052 & 0.0056 & 6.9 \\
+granite-ttm & ares & 3600 & 300 & False & 0.0055 & 0.0057 & 7.6 \\
+granite-ttm-ft-E4_ctx1024_uni & ares-comp-10 & 1024 & 60 & False & 0.1795 & 0.2213 & 7.1 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & ares-comp-10 & 1024 & 60 & False & 0.1770 & 0.2152 & 5.4 \\
+granite-ttm & ares-comp-10 & 1024 & 60 & False & 0.0549 & 0.0878 & 4.9 \\
+granite-ttm-ft-E5_ctx1024_mix10 & ares-comp-10 & 1024 & 60 & True & 0.1770 & 0.2096 & 8.1 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & ares-comp-10 & 1024 & 60 & True & 0.1775 & 0.2071 & 9.5 \\
+granite-ttm-ft-E4_ctx1024_uni & ares-comp-10 & 1024 & 96 & False & 0.2466 & 0.2891 & 7.0 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & ares-comp-10 & 1024 & 96 & False & 0.2093 & 0.2489 & 5.5 \\
+granite-ttm-ft-E5_ctx1024_mix10 & ares-comp-10 & 1024 & 96 & True & 0.2019 & 0.2367 & 8.7 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & ares-comp-10 & 1024 & 96 & True & 0.1549 & 0.1915 & 8.9 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & ares-comp-10 & 1024 & 120 & False & 0.2175 & 0.2712 & 5.3 \\
+granite-ttm & ares-comp-10 & 1024 & 120 & False & 0.0753 & 0.1007 & 5.6 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & ares-comp-10 & 1024 & 120 & True & 0.2197 & 0.2657 & 9.8 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & ares-comp-10 & 1024 & 192 & False & 0.2180 & 0.3096 & 6.0 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & ares-comp-10 & 1024 & 192 & True & 0.2272 & 0.3026 & 8.8 \\
+granite-ttm & ares-comp-10 & 1024 & 300 & False & 0.0828 & 0.1346 & 5.0 \\
+granite-ttm & ares-comp-10 & 1800 & 60 & False & 0.0543 & 0.0686 & 4.9 \\
+granite-ttm & ares-comp-10 & 1800 & 120 & False & 0.1118 & 0.2964 & 4.8 \\
+granite-ttm & ares-comp-10 & 1800 & 300 & False & 0.1537 & 0.2997 & 4.9 \\
+granite-ttm & ares-comp-10 & 3600 & 60 & False & 0.1128 & 0.2838 & 4.9 \\
+granite-ttm & ares-comp-10 & 3600 & 120 & False & 0.0848 & 0.2146 & 5.5 \\
+granite-ttm & ares-comp-10 & 3600 & 300 & False & 0.0907 & 0.1716 & 4.9 \\
+granite-ttm-ft-E4_ctx1024_uni & chameleon & 1024 & 60 & False & 0.0174 & 0.0190 & 5.4 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & chameleon & 1024 & 60 & False & 0.0167 & 0.0187 & 6.0 \\
+granite-ttm & chameleon & 1024 & 60 & False & 0.0580 & 0.0715 & 4.8 \\
+granite-ttm-ft-E5_ctx1024_mix10 & chameleon & 1024 & 60 & True & 0.0166 & 0.0175 & 8.2 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & chameleon & 1024 & 60 & True & 0.0152 & 0.0165 & 10.1 \\
+granite-ttm-ft-E4_ctx1024_uni & chameleon & 1024 & 96 & False & 0.0181 & 0.0208 & 5.5 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & chameleon & 1024 & 96 & False & 0.0171 & 0.0195 & 5.8 \\
+granite-ttm-ft-E5_ctx1024_mix10 & chameleon & 1024 & 96 & True & 0.0176 & 0.0191 & 7.7 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & chameleon & 1024 & 96 & True & 0.0176 & 0.0197 & 11.2 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & chameleon & 1024 & 120 & False & 0.0195 & 0.0222 & 5.4 \\
+granite-ttm & chameleon & 1024 & 120 & False & 0.1194 & 0.2199 & 5.5 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & chameleon & 1024 & 120 & True & 0.0186 & 0.0208 & 10.0 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & chameleon & 1024 & 192 & False & 0.0214 & 0.0243 & 5.3 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & chameleon & 1024 & 192 & True & 0.0217 & 0.0239 & 9.6 \\
+granite-ttm & chameleon & 1024 & 300 & False & 0.1087 & 0.1933 & 4.8 \\
+granite-ttm & chameleon & 1800 & 60 & False & 0.1011 & 0.1300 & 5.0 \\
+granite-ttm & chameleon & 1800 & 120 & False & 0.1028 & 0.1376 & 5.0 \\
+granite-ttm & chameleon & 1800 & 300 & False & 0.0848 & 0.1381 & 5.1 \\
+granite-ttm & chameleon & 3600 & 60 & False & 0.0816 & 0.1128 & 4.9 \\
+granite-ttm & chameleon & 3600 & 120 & False & 0.2007 & 0.3517 & 5.6 \\
+granite-ttm & chameleon & 3600 & 300 & False & 0.2567 & 0.4327 & 4.8 \\
+granite-ttm-ft-E4_ctx1024_uni & homelab & 1024 & 60 & False & 0.0193 & 0.0228 & 7.2 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & homelab & 1024 & 60 & False & 0.0187 & 0.0227 & 5.5 \\
+granite-ttm & homelab & 1024 & 60 & False & 0.0076 & 0.0080 & 5.2 \\
+granite-ttm-ft-E5_ctx1024_mix10 & homelab & 1024 & 60 & True & 0.0153 & 0.0183 & 8.6 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & homelab & 1024 & 60 & True & 0.0200 & 0.0230 & 9.0 \\
+granite-ttm-ft-E4_ctx1024_uni & homelab & 1024 & 96 & False & 0.0232 & 0.0293 & 5.4 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & homelab & 1024 & 96 & False & 0.0227 & 0.0292 & 5.8 \\
+granite-ttm-ft-E5_ctx1024_mix10 & homelab & 1024 & 96 & True & 0.0187 & 0.0247 & 7.9 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & homelab & 1024 & 96 & True & 0.0213 & 0.0258 & 10.1 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & homelab & 1024 & 120 & False & 0.0274 & 0.0346 & 6.2 \\
+granite-ttm & homelab & 1024 & 120 & False & 0.0207 & 0.0214 & 4.9 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & homelab & 1024 & 120 & True & 0.0244 & 0.0297 & 8.8 \\
+granite-ttm-ft-E6_ctx1024_h192_uni & homelab & 1024 & 192 & False & 0.0395 & 0.0491 & 5.7 \\
+granite-ttm-ft-E7_ctx1024_h192_mix10 & homelab & 1024 & 192 & True & 0.0394 & 0.0478 & 11.1 \\
+granite-ttm & homelab & 1024 & 300 & False & 0.0259 & 0.0307 & 5.0 \\
+granite-ttm & homelab & 1800 & 60 & False & 0.0026 & 0.0030 & 5.0 \\
+granite-ttm & homelab & 1800 & 120 & False & 0.0059 & 0.0065 & 4.8 \\
+granite-ttm & homelab & 1800 & 300 & False & 0.0139 & 0.0144 & 4.8 \\
+granite-ttm & homelab & 3600 & 60 & False & 0.0132 & 0.0147 & 5.5 \\
+granite-ttm & homelab & 3600 & 120 & False & 0.0336 & 0.0357 & 4.8 \\
+granite-ttm & homelab & 3600 & 300 & False & 0.0530 & 0.0602 & 4.9 \\
+\bottomrule
+\end{tabular}
+\end{table}
